@@ -1,120 +1,65 @@
-# Node-RED Automation Workspace
+# Node-RED Home Automation: The Ultimate Smart Home Brain
 
-Alright, let’s combine and **upgrade** these into a single README that covers your whole Node-RED automation setup—including your next-level weather alert flows and all your home automation wizardry.
-You want something that’s organized, covers all the features, and still readable for mere mortals. Here’s a merge draft (ready to drop into your main README):
-
----
-
-This repo is Quentin’s smart home brain: a full set of Node-RED flows, custom function code, and integrations for *everything*—alarms, garage doors, weather, lighting, and wild custom notifications. It’s Home Assistant on steroids. Use it as a toolbox, reference, or springboard for your own automations.
+Welcome to Quentin’s Node-RED automation suite—a comprehensive, modular, and highly-customized smart home system. This repository powers everything from advanced alarm logic and garage automation to weather alerting, lighting, and rich notifications. It’s built for flexibility, reliability, and deep Home Assistant integration.
 
 ---
 
-## Directory Structure
+## What’s Inside?
 
-```text
-.
-├── alarm_flow/
-│   ├── lock_disable_alarm/   # Disarm alarms via lock code
-│   └── notify/               # Alarm notification handlers
-├── config/                   # Global context and settings
-├── north_garage_flow/
-│   └── doc/                  # Garage automation docs
-├── weather_flow/
-│   ├── notify/               # Weather notification handlers
-│   ├── priority_alerts.js    # Assigns priorities, dedupes, validates alerts
-│   ├── process_alert_tts.js  # TTS announcement logic (Sonos/Google Home)
-│   ├── process_alert_tts_mobile.js # Mobile device TTS via Home Assistant
-│   ├── pushover_alert.js     # Pushover rich notifications (HTML/emoji/sounds)
-│   ├── gotify_alert.js       # Gotify markdown notifications (meta/county)
-│   └── time_condition.js     # Restrict notifications by time, critical bypass
-└── sync_global_json.py       # Utility: Sync global config
-```
+- **Alarm System:**  
+  Robust state management, duress code support, lock-based disarming, and instant push/TTS notifications. Handles edge cases and failures gracefully.
+
+- **Garage Automation:**  
+  Smart timers for auto-closing, motion-activated lighting, and detailed documentation for every logic path.
+
+- **Weather Alerts:**  
+  Priority-based filtering, deduplication, and time-aware delivery. Alerts are spoken on Sonos/Google Home and sent to mobile devices, with rich formatting for Pushover and Gotify.
+
+- **General Notifications:**  
+  Unified push and TTS for all critical events—alarms, doors, weather, and more. Home Assistant events are the backbone.
+
+- **Config & Utilities:**  
+  Centralized global config, easy migration tools, and per-flow documentation for rapid onboarding and troubleshooting.
 
 ---
 
-## Features
+## Directory Highlights
 
-### Alarm System
+- `alarm_flow/` — Alarm logic, duress handling, lock disarm, and notification modules.
+- `north_garage_flow/` — Garage door and lighting automations, with docs.
+- `weather_flow/` — Weather alert processing, notification handlers, and time-based logic.
+- `config/` — Global settings and context.
+- `sync_global_json.py` — Utility for syncing Node-RED global config.
 
-* Advanced alarm state management, duress code handling, event failure detection
-* Disarm via lock code
-* Instant push & TTS notifications for all states
+---
 
-### Garage Automation
+## Why This Repo?
 
-* Timer-based auto-close for garage doors
-* Interior lighting by motion, time, or events
-* Documentation for all logic
-
-### Weather Alert Flow
-
-* **Priority Assignment:** Assigns priorities to NWS alerts (Tornado, Severe, etc.), supports multiple/duplicate filtering with TTL
-* **TTS Announcements:** Weather alerts on Sonos, Google Home, and mobile devices. Speaks only the *relevant* details (no “Des Moines, Iowa” nonsense)
-* **Rich Notifications:**
-
-  * **Pushover:** Length-limited, emoji, HTML, custom sound
-  * **Gotify:** Markdown, event art, highlights, meta
-* **Time Restrictions:** Don’t want flood alerts waking you at 2 AM? Restrict by hour, with critical overrides for stuff like Tornado Warnings
-* **Flexible Filtering:** Target your county, tune sounds, choose device lists, all in config
-
-### General Notifications
-
-* Push and TTS for everything important: alarms, doors, weather, the works
-* Home Assistant events as the backbone
+- **Battle-Tested:**  
+  Handles real-world edge cases, failures, and complex automations.
+- **Extensible:**  
+  Add new flows, integrations, or notification channels with minimal friction.
+- **Documented:**  
+  Each major flow has markdown docs for setup, logic, and integration tips.
+- **Customizable:**  
+  Tweak counties, alert sounds, notification services, and time restrictions to fit your needs.
 
 ---
 
 ## Getting Started
 
-1. **Clone the Repo**
-
-   ```bash
-   git clone H2OKing89/node-red_automations
-   ```
-
-2. **Import Flows**
-
-   * Bring flows/functions into Node-RED
-3. **Configure Integrations**
-
-   * Hook up Home Assistant nodes, set up device/entity IDs in configs
-   * Customize sounds, counties, notification services (Pushover, Gotify, etc.)
-4. **Deploy & Test**
-
-   * Tweak timers, thresholds, and logic as needed
-   * Use sample alert payloads to test your notification stack
-
----
-
-## Customization Tips
-
-* **Counties:** Edit `targetCounties` arrays for your area
-* **Alert Sounds:** Set up in TTS config
-* **Notification Services:** Drop in your own tokens/IDs
-* **Time Restrictions:** Adjust allowed hours in `time_condition.js`
-* **Garage/Alarm Logic:** Tweak timers and triggers for your setup
+1. Clone the repo and import flows into Node-RED.
+2. Configure Home Assistant nodes, device/entity IDs, and notification services.
+3. Adjust timers, thresholds, and logic as needed.
+4. Test with sample payloads and deploy.
 
 ---
 
 ## Requirements
 
-* Node-RED (latest recommended)
-* Home Assistant (event integration required)
-* \[Optional] SunCalc for sunrise/sunset logic
-* \[Optional] Moment.js for advanced time stuff
-* \[Optional] Pushover, Gotify, Sonos, Google Home integrations
-
----
-
-## Docs
-
-* Each major flow/automation has a markdown in its `doc/` folder with setup, logic, and integration tips.
-
----
-
-## Additional Tools
-
-* `sync_global_json.py` — Easy sync for Node-RED global config, handy for migrations/backups
+- Node-RED (latest recommended)
+- Home Assistant (event integration)
+- [Optional] SunCalc, Moment.js, Pushover, Gotify, Sonos, Google Home
 
 ---
 
@@ -126,9 +71,9 @@ MIT License
 
 ## Author
 
-Quentin King
-*Last updated: June 27, 2025*
+Quentin King  
+*Last updated: June 29, 2025*
 
 ---
 
-*Questions, ideas, or bug reports? Open an issue or a PR—let’s automate all the things!*
+*Questions or ideas? Open an issue or PR—let’s automate everything!*

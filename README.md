@@ -59,7 +59,7 @@ Welcome to Quentin’s Node-RED automation suite—a comprehensive, modular, and
 
 - Node-RED (latest recommended)
 - Home Assistant (event integration)
-- [Optional] SunCalc, Moment.js, Pushover, Gotify, Sonos, Google Home
+- [Optional] SunCalc, date-fns (transitioning from Moment.js), Pushover, Gotify, Sonos, Google Home
 
 ---
 

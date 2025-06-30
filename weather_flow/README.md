@@ -1,6 +1,6 @@
 # Node-RED Weather Alert Flow
 
-This repository contains Node-RED function nodes and scripts for processing, filtering, and announcing National Weather Service (NWS) weather alerts. The flows are designed to deliver concise, relevant, and actionable notifications to your home audio devices, mobile devices, and notification services.
+This directory contains Node-RED function nodes and scripts for processing, filtering, and announcing National Weather Service (NWS) weather alerts. The flows are designed to deliver concise, relevant, and actionable notifications to your home audio devices, mobile devices, and notification services.
 
 ## Features
 
@@ -26,11 +26,18 @@ This repository contains Node-RED function nodes and scripts for processing, fil
 - **Time-Based Notification Restriction:**
   - Restricts notifications to certain hours, with bypass for critical events (e.g., Tornado Warnings).
 
-## Files Overview
+## Requirements
+
+- Node-RED (latest recommended)
+- Home Assistant (for media player and mobile integrations)
+- (Optional) Pushover, Gotify, and Sonos/Google Home integrations
+- (Optional) Moment.js for advanced time handling (see `time_condition.js`)
+
+## Files
 
 - `priority_alerts.js` — Assigns priorities, deduplicates, and validates incoming alert payloads.
 - `process_alert_tts.js` — Main TTS announcement logic for Sonos/Google Home, with advanced filtering and error handling.
-- `process_alert_tts_mobile.js` — Sends TTS weather alerts to a mobile device via Home Assistant.
+- `process_alert_tts_mobile.js` / `weather_tts_mobile.js` — Sends TTS weather alerts to a mobile device via Home Assistant.
 - `pushover_alert.js` — Formats and sends weather alerts to Pushover with HTML, emoji, and length validation.
 - `gotify_alert.js` — Formats and sends weather alerts to Gotify with markdown, art, and meta info.
 - `time_condition.js` — Restricts notifications to a time window, with bypass for critical events.
@@ -43,6 +50,13 @@ This repository contains Node-RED function nodes and scripts for processing, fil
 4. **Customize filtering** (e.g., target counties, time windows) in the config sections.
 5. **Deploy your flow** and test with sample NWS alert payloads.
 
+These function nodes are designed to be used in Node-RED flows for:
+
+- Receiving and processing weather alerts from Home Assistant or NWS feeds
+- Filtering, formatting, and prioritizing alerts for different notification channels
+- Sending TTS announcements to speakers and mobile devices
+- Managing notification timing and duplicate suppression
+
 ## Customization
 
 - **Target Counties:**
@@ -54,21 +68,20 @@ This repository contains Node-RED function nodes and scripts for processing, fil
 - **Time Restrictions:**
   - Adjust allowed hours and bypass events in `time_condition.js`.
 
-## Requirements
+## Example Flow
 
-- Node-RED (latest recommended)
-- Home Assistant (for media player and mobile integrations)
-- (Optional) Pushover, Gotify, and Sonos/Google Home integrations
-- (Optional) Moment.js for advanced time handling (see `time_condition.js`)
+1. **priority_alerts.js**: Assigns priority and deduplicates incoming alerts.
+2. **gotify_alert.js** / **pushover_alert.js**: Formats and sends push notifications.
+3. **process_alert_tts.js** / **weather_tts_mobile.js**: Delivers TTS announcements to speakers or mobile devices.
+4. **time_condition.js**: Ensures notifications are sent only during allowed hours (except for critical events).
 
-## Author
+## Notes
 
-Quentin
-
-## License
-
-MIT License
+- All scripts use Node-RED's logging and status APIs for debugging and monitoring.
+- County and area filtering is customizable in each script.
+- This is just the start—more weather alert logic and integrations can be added in the future.
+- See comments in each script for configuration and extension tips.
 
 ---
 
-*For questions, improvements, or bug reports, please open an issue or pull request on this repository.*
+For more details, see comments in each script file.

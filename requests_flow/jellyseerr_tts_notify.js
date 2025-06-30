@@ -62,9 +62,10 @@ function delay(ms) {
         const comment_message = comment.comment_message || "No comment provided.";
         const commentedBy_username = comment.commentedBy_username || "Unknown User";
         const issue = payload.issue || {};
+        // Suppress comment TTS only if status is RESOLVED (handled by status change event)
         if (issue.issue_status === "RESOLVED") {
-            tts = `Issue Resolved: \"${subject}\". ${commentedBy_username} commented: ${comment_message}`;
-            node.log('TTS generated for ISSUE_COMMENT with RESOLVED status');
+            node.log('Suppressing duplicate TTS for ISSUE_COMMENT after RESOLVED');
+            tts = null;
         } else {
             tts = `${event}: \"${subject}\". ${commentedBy_username} commented: ${comment_message}`;
             node.log('TTS generated for ISSUE_COMMENT');
@@ -113,7 +114,7 @@ function delay(ms) {
     }
 
     if (!tts) {
-        node.warn('No TTS generated for this event');
+        node.warn(`No TTS generated for this event: ${eventType}`);
         node.status({ fill: "grey", shape: "ring", text: "No TTS for this event" });
         node.done();
         return;

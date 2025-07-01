@@ -95,8 +95,10 @@ const outMsgs = [];
 androidActions.forEach(action => outMsgs.push(androidPayload(action)));
 iosActions.forEach(action => outMsgs.push(iosPayload(action)));
 
-node.warn(`Android actions: ${JSON.stringify(androidActions)}, iOS actions: ${JSON.stringify(iosActions)}`);
-node.warn(`iosActions: ${JSON.stringify(iosActions)}, notifyMapIOS: ${JSON.stringify(notifyMapIOS)}, entityId: ${entityId}`);
-node.warn(`Output messages: ${JSON.stringify(outMsgs)}`);
+node.log(`Building notification for entity: ${entityId}`);
+node.debug(`Android actions: ${JSON.stringify(androidActions)}`);
+node.debug(`iOS actions: ${JSON.stringify(iosActions)}`);
+node.debug(`notifyMapIOS: ${JSON.stringify(notifyMapIOS)}, entityId: ${entityId}`);
+node.debug(`Output messages: ${JSON.stringify(outMsgs)}`);
 
 return [outMsgs]; // Flat array of messages for Node-RED

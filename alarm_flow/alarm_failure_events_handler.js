@@ -1,89 +1,80 @@
 // Name: Alarm Failure Events handler
 // Description: Handles alarm failure events, formats messages, and sends TTS announcements.
 // Author: Quentin King (updated)
-// Date: 2025-06-19 (updated version)
-// Version: 1.5.0
+// Date: 2025-06-30 (updated version)
+// Version: 1.7.0
+// Dependencies: Add date-fns and date-fns-tz in the function node setup tab
+// See tts_sonos_google_examples.md for TTS payload format documentation
 
 
 /*
    Changelog:
-   - Version 1.5.0:
-     - REMOVED: Complete retry mechanism and all retry-related configuration (maxRetries, initialDelay, backoffFactor, etc.)
-     - ADDED: Enhanced actionable notifications for arm failure events with "Retry Arm" and "Force Arm" action buttons
-     - IMPROVED: Conditional actionable notifications - only arm failures get action buttons, disarm failures get simple notifications
-     - ENHANCED: High priority, sticky notifications with alarm-specific channel and visual styling for arm failures
-     - STREAMLINED: Code structure by removing retry complexity while maintaining core functionality
-   
-   - Version 1.4.2-SonosTTS:
-     - Modified date handling: if event.time_fired is missing, check payload.time_fired before falling back to current time.
-     - Updated TTS output to use the new Sonos announcement payload format.
-     - Other robust dependency and error-handling enhancements from version 1.4.1.
-*/
+   - Version 1.7.0:
+     - ADDED: Google TTS implementation using tts.google_say format
+     - IMPROVED: Multi-platform TTS support for both Sonos and Google speakers
+     - UPDATED: Return array now includes both Sonos and Google TTS messages
+   */
 
-// --- Dependency Check and Fallbacks ---
+// --- Dependency Check for date-fns Libraries ---
 
-const moment = global.get('moment'); // Check if Moment.js is loaded.
-if (!moment) {
-    // If Moment.js isn't available, log an error and create a fallback date formatter.
-    // Note: This fallback uses the built-in Date.toLocaleString(), which may not support time zones.
-    // In production, you might want to load an alternative lightweight library.
-    logMessage('ERROR', 'Moment.js is not available. Date formatting will use a basic fallback.');
-    var momentAvailable = false;
-} else {
-    var momentAvailable = true;
+/**
+ * This function requires date-fns and date-fns-tz to be added in the Node-RED function node's setup tab.
+ * 
+ * To add these libraries:
+ * 1. In Node-RED, double-click this function node
+ * 2. Go to the "Setup" tab
+ * 3. Add the following modules:
+ *    - Module: date-fns | Variable: dateFns
+ *    - Module: date-fns-tz | Variable: dateFnsTz
+ */
+
+// Check for required libraries
+const dateFnsAvailable = typeof dateFns !== 'undefined';
+const dateFnsTzAvailable = typeof dateFnsTz !== 'undefined';
+
+// Log warning if dependencies are missing
+if (!dateFnsAvailable) {
+    node.error('REQUIRED MODULE MISSING: date-fns is not available. Add it in the function node setup tab.');
+}
+if (!dateFnsTzAvailable) {
+    node.error('REQUIRED MODULE MISSING: date-fns-tz is not available. Add it in the function node setup tab.');
 }
 
 /**
- * Formats the date using Moment.js (if available) or falls back to a basic formatter.
+ * Formats the date using date-fns-tz for timezone support.
  * @param {string|Date} date - The date to format.
  * @param {string} timeZone - The desired time zone (e.g., 'America/Chicago').
  * @returns {string} - The formatted date string.
  */
 function formatDate(date, timeZone = 'America/Chicago') {
-    if (momentAvailable) {
-        try {
-            return moment.tz(date, timeZone).format('dddd, MMMM D, YYYY [at] HH:mm:ss z');
-        } catch (error) {
-            logMessage('ERROR', `Error using Moment.js to format date: ${error.message}`);
-            // Fallback formatting in case of error
-        }
+    if (!dateFnsAvailable || !dateFnsTzAvailable) {
+        node.error('date-fns or date-fns-tz is not available. Date formatting will fail.');
+        return "Date formatting unavailable";
     }
-    // Basic fallback formatting
+    
     try {
-        return new Date(date).toLocaleString();
-    } catch (error) {
-        logMessage('ERROR', `Fallback date formatting error: ${error.message}`);
-        return "Unknown Date";
-    }
-}
-
-// --- Logging Enhancements ---
-
-// Mapping log levels to Node-RED logging functions.
-const logLevelMapping = {
-    DEBUG: node.log,
-    INFO: node.log,
-    WARN: node.warn,
-    ERROR: node.error
-};
-
-/**
- * Logs messages using different Node-RED logging functions based on severity.
- * @param {string} level - The log level ('DEBUG', 'INFO', 'WARN', 'ERROR').
- * @param {string} message - The message content.
- */
-function logMessage(level, message) {
-    const debugging = context.get('debugging') !== undefined ? context.get('debugging') : true; // Default to true if not set.
-    if (debugging) {
-        const timestamp = new Date().toISOString();
-        const logEntry = `[${timestamp}] [${level}] ${message}`;
-        if (logLevelMapping[level]) {
-            logLevelMapping[level](logEntry);
-        } else {
-            node.log(logEntry);
+        // Primary formatting with timezone support
+        if (dateFnsTzAvailable) {
+            return dateFnsTz.formatInTimeZone(
+                date, 
+                timeZone, 
+                "EEEE, MMMM d, yyyy 'at' HH:mm:ss zzz"
+            );
         }
+        
+        // Fallback to date-fns without timezone if date-fns-tz is not available
+        return dateFns.format(
+            date,
+            "EEEE, MMMM d, yyyy 'at' HH:mm:ss"
+        );
+    } catch (error) {
+        node.error(`Date formatting error: ${error.message}`);
+        return "Error formatting date";
     }
 }
+
+// --- No custom logging system needed anymore ---
+// We'll use node.log, node.warn, node.error, and node.debug directly
 
 // --- Helper Functions ---
 
@@ -140,7 +131,7 @@ function formatSensorMessages(sensors) {
             }
         }
         if (!matched) {
-            logMessage('DEBUG', `No specific formatting found for sensor: ${cleanedSensor}`);
+            node.debug(`No specific formatting found for sensor: ${cleanedSensor}`);
         }
         return sensorTypeMessages['default'](cleanedSensor);
     });
@@ -163,7 +154,6 @@ function formatSensorMessages(sensors) {
  */
 function handleError(error, msg) {
     const errorMsg = `Error: ${error.message}`;
-    logMessage('ERROR', errorMsg);
     node.error(errorMsg, msg);
 }
 
@@ -186,9 +176,14 @@ const stateMappings = {
 };
 
 // --- Main Logic ---
+// This function now returns 4 outputs:
+// 1. Sonos TTS message (media_player.play_media)
+// 2. Google TTS message (tts.google_say)
+// 3. Push notification message
+// 4. Actionable notification (with or without actions based on event type)
 
 try {
-    logMessage('DEBUG', 'Function node initialized and running.');
+    node.debug('Function node initialized and running.');
 
     // --- Validate Incoming Message Object Early ---
     if (!msg || !msg.payload) {
@@ -199,18 +194,18 @@ try {
     // --- Concurrency and Context Management ---
     const uniqueId = msg._msgid || (msg.payload.event && msg.payload.event.id) || 'default';
     if (context.get(`processing_${uniqueId}`)) {
-        logMessage('WARN', `Event with ID ${uniqueId} is already being processed. Skipping duplicate processing.`);
+        node.warn(`Event with ID ${uniqueId} is already being processed. Skipping duplicate processing.`);
         return [null, null, null];
     }
     context.set(`processing_${uniqueId}`, true);    // --- Destructuring and Early Payload Validation ---
     const { payload } = msg;
-    logMessage('DEBUG', `Received payload structure: ${JSON.stringify(payload, null, 2)}`);
+    node.debug(`Received payload structure: ${JSON.stringify(payload, null, 2)}`);
     
     const { event_type, event } = payload;
     try {
         validateEventPayload(payload);
     } catch (err) {
-        logMessage('ERROR', `Payload validation failed: ${err.message}`);
+        node.error(`Payload validation failed: ${err.message}`);
         handleError(err, msg);
         context.set(`processing_${uniqueId}`, false); // Clear lock on error.
         return [null, null, null];
@@ -220,19 +215,37 @@ try {
     let sensors = event.sensors;
     if (sensors && !Array.isArray(sensors)) {
         sensors = [sensors];
-    }    // --- Granular Error Handling for Date Parsing ---
+    }    // --- Granular Error Handling for Date Parsing using date-fns ---
     let eventDate;
     try {
         // Check for time_fired in payload first (new structure), then in event (old structure)
         let timeToUse = payload.time_fired || event.time_fired;
         if (!timeToUse) {
-            logMessage('WARN', "Missing time_fired in both payload and event. Using current time as fallback.");
+            node.warn("Missing time_fired in both payload and event. Using current time as fallback.");
             timeToUse = new Date().toISOString();
         } else {
-            logMessage('DEBUG', `Using time_fired: ${timeToUse}`);
+            node.debug(`Using time_fired: ${timeToUse}`);
         }
-        eventDate = new Date(timeToUse);
-        if (isNaN(eventDate.getTime())) {
+        
+        // Use date-fns to parse the date if available
+        if (dateFnsAvailable) {
+            // Check if it's an ISO string
+            if (typeof timeToUse === 'string' && dateFns.isValid(dateFns.parseISO(timeToUse))) {
+                eventDate = dateFns.parseISO(timeToUse);
+            } else {
+                // Fallback to regular Date constructor
+                eventDate = new Date(timeToUse);
+            }
+        } else {
+            eventDate = new Date(timeToUse);
+        }
+        
+        // Validate the date using date-fns if available, otherwise use traditional method
+        if (dateFnsAvailable) {
+            if (!dateFns.isValid(eventDate)) {
+                throw new Error("Invalid time_fired date format.");
+            }
+        } else if (isNaN(eventDate.getTime())) {
             throw new Error("Invalid time_fired date format.");
         }
     } catch (error) {
@@ -240,10 +253,10 @@ try {
         context.set(`processing_${uniqueId}`, false);
         return [null, null, null];
     }
-    logMessage('DEBUG', `Parsed Date Object: ${eventDate.toISOString()}`);
+    node.debug(`Parsed Date Object: ${eventDate.toISOString()}`);
 
     const formattedDate = formatDate(eventDate, 'America/Chicago');
-    logMessage('DEBUG', `Formatted Date: ${formattedDate}`);
+    node.debug(`Formatted Date: ${formattedDate}`);
 
     // --- Processing the Event ---
     let reasonMessage = '';
@@ -284,27 +297,63 @@ try {
     payload.notification_topic = `Alarm Failed to ${stateDetails.state}`;
 
     // --- Create Outgoing Messages ---
-    // Output 1: TTS (Now using Sonos Announcement)
+    // Clean TTS message once for all notifications
+    const cleanTtsMessage = cleanText(ttsMessage);
+    
+    // Configure speaker groups
+    const sonosSpeakers = [
+        "media_player.sonos_1",
+        "media_player.bedroom_sonos_amp",
+        "media_player.era_100"
+    ];
+    
+    const googleSpeakers = [
+        "media_player.house_google_speakers"
+    ];
+    
+    // Output 1: Multi-platform TTS - Sonos with media_player.play_media format
+    // Use proper URL-encoding with quotes for Sonos
+    const encodedTtsMessage = encodeURIComponent(`"${cleanTtsMessage}"`);
+    
+    // Create Sonos TTS message
     let msg1 = {
         ...msg,
         payload: {
             action: "media_player.play_media",
             target: {
-                entity_id: [
-                    "media_player.sonos_1",
-                    "media_player.bedroom_sonos_amp",
-                    "media_player.era_100"
-                ]
+                entity_id: sonosSpeakers
             },
             data: {
-                media_content_id: 'media-source://tts/google_translate?message=' + encodeURIComponent('"' + cleanText(ttsMessage) + '"'),
+                media_content_id: `media-source://tts/google_translate?message=${encodedTtsMessage}`,
                 media_content_type: "music",
                 announce: true,
                 extra: {
                     volume: 100
                 }
             }
-        }    };
+        },
+        // Add metadata to help identify message type in flow
+        tts_type: "sonos",
+        speakers: sonosSpeakers
+    };
+    
+    // Create Google TTS message using tts.google_say format
+    let msg1a = {
+        ...msg,
+        payload: {
+            action: "tts.google_say",
+            target: {
+                entity_id: googleSpeakers
+            },
+            data: {
+                message: cleanTtsMessage, // Plain text for Google (no encoding)
+                cache: false
+            }
+        },
+        // Add metadata to help identify message type in flow
+        tts_type: "google",
+        speakers: googleSpeakers
+    };
 
     // Output 2: Push Notification (unchanged)
     let msg2 = {
@@ -374,15 +423,15 @@ try {
         };
     }
 
-    logMessage('INFO', `Successfully processed alarm failure event with ID ${uniqueId}.`);
+    node.log(`Successfully processed alarm failure event with ID ${uniqueId}.`);
 
     context.set(`processing_${uniqueId}`, false);
-    return [msg1, msg2, msg3];
+    return [msg1, msg1a, msg2, msg3]; // Added msg1a (Google TTS)
 
 } catch (error) {
     handleError(error, msg);
     if (msg && msg._msgid) {
         context.set(`processing_${msg._msgid}`, false);
     }
-    return [null, null, null];
+    return [null, null, null, null]; // Added null for Google TTS output
 }

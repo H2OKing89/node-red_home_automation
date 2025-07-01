@@ -22,7 +22,7 @@ const config = {
             "media_player.era_100"
         ],
         google: [
-            "media_player.all_home_speaker"
+            "media_player.house_google_speakers"
         ]
     },
     volumes: { sonos: 100 },      // Sonos volume level (0-100)

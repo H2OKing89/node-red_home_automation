@@ -157,3 +157,15 @@ The Action Processor handles these notification actions:
 - **This Handler** stores the alarm command in flow context when generating actionable notifications
 - **Action Processor** reads the command from flow context and maps it to the correct alarm mode
 - Both scripts use consistent error handling with Node-RED's built-in logging methods
+
+---
+
+## Example Screenshots
+
+### Actionable Notification
+
+![Actionable notification example](docs/images/notification_example1.png)
+
+### Mobile App Notification
+
+![Mobile app notification example](docs/images/notification_example2.png)

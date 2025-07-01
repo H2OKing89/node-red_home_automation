@@ -164,8 +164,8 @@ The Action Processor handles these notification actions:
 
 ### Actionable Notification
 
-![Actionable notification example](docs/images/notification_example1.png)
+![Actionable notification example](docs/images/alarm_event_group_overview.png)
 
 ### Mobile App Notification
 
-![Mobile app notification example](docs/images/notification_example2.png)
+![Mobile app notification example](docs/images/alarm_event_failure_mobile_notify.jpg)

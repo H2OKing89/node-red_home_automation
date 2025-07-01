@@ -101,3 +101,59 @@ To use this handler effectively:
 ## Version History
 
 See the changelog section at the top of the script for detailed version history.
+
+---
+
+## Integration with Mobile App Notification Action Processor
+
+This Alarm Failure Events Handler works in conjunction with the **Mobile App Notification Action Processor** (`alarm_failure_events_processor.js`) to create a complete alarm failure management system.
+
+### Flow Architecture
+
+1. **Alarm Failure Events Handler** (this script) - Generates notifications when alarm systems fail to arm/disarm
+2. **Mobile App Notification Action Processor** - Processes user responses from actionable notifications
+
+### How They Work Together
+
+#### Step 1: Failure Detection & Notification
+
+When an alarm fails to arm, this handler:
+
+- Formats TTS announcements for speakers
+- Sends push notifications to mobile devices
+- **Creates actionable notifications** with "Retry" and "Force" buttons for arm failures
+
+#### Step 2: User Action Processing
+
+When a user taps an action button in the mobile notification:
+
+- The Mobile App Notification Action Processor receives the `mobile_app_notification_action` event
+- It retrieves the original arm command from flow context
+- It maps the command to the appropriate alarm mode (home, away, night, etc.)
+- It processes the action type (retry or force) and formats the payload for the alarm system
+
+### Data Flow
+
+```text
+Alarm Failure → Handler → Actionable Notification → User Taps Button → 
+Action Processor → Formatted Command → Alarm System
+```
+
+### Required Flow Context
+
+The Action Processor relies on flow context to maintain state between the two scripts:
+
+- `command`: The original alarm command (ARM_HOME, ARM_AWAY, etc.) stored by the failure handler
+
+### Supported Actions
+
+The Action Processor handles these notification actions:
+
+- `ALARMO_RETRY_ARM`: Attempts to arm with the same parameters
+- `ALARMO_FORCE_ARM`: Forces arming, bypassing open sensors
+
+### Dependencies Between Scripts
+
+- **This Handler** stores the alarm command in flow context when generating actionable notifications
+- **Action Processor** reads the command from flow context and maps it to the correct alarm mode
+- Both scripts use consistent error handling with Node-RED's built-in logging methods

@@ -14,31 +14,6 @@
    edge cases such as missing or malformed data.
 */
 
-// Logging controls
-const LOGGING_ENABLED = false; // Set to true for detailed logging
-const LOG_LEVEL = 'INFO'; // Desired log level: 'DEBUG', 'INFO', 'WARN', 'ERROR'
-const LOG_TO_CONSOLE = true; // Log to console if true, else log to debug node
-
-// Helper function for logging messages
-function logMessage(level, message, context = {}) {
-    const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    const currentLevelIndex = levels.indexOf(LOG_LEVEL);
-    const messageLevelIndex = levels.indexOf(level);
-
-    // Always log errors
-    if (level === 'ERROR' || (LOGGING_ENABLED && messageLevelIndex >= currentLevelIndex)) {
-        let logText = `[${new Date().toISOString()}] [${level}] ${message}`;
-        if (Object.keys(context).length > 0) {
-            logText += ` | Context: ${JSON.stringify(context)}`;
-        }
-        if (LOG_TO_CONSOLE) {
-            node.log(logText);
-        } else {
-            node.warn(logText);
-        }
-    }
-}
-
 // Mode mapping configuration
 const modeMapping = {
     'ARM_HOME': 'home',
@@ -51,17 +26,17 @@ const modeMapping = {
 try {
     // Validate incoming msg structure
     if (!msg || typeof msg !== 'object') {
-        logMessage('ERROR', "Received message is not an object.");
+        node.error("Received message is not an object.");
         return null;
     }
 
     if (!msg.payload || typeof msg.payload !== 'object') {
-        logMessage('ERROR', "Message payload is missing or not an object.", { payload: msg.payload });
+        node.error("Message payload is missing or not an object.", msg);
         return null;
     }
 
     if (!msg.payload.event || typeof msg.payload.event !== 'object') {
-        logMessage('ERROR', "Event is missing or not an object in the payload.", { payload: msg.payload });
+        node.error("Event is missing or not an object in the payload.", msg);
         return null;
     }
 
@@ -70,34 +45,34 @@ try {
     command = (command || "").toUpperCase();
 
     if (!command || !modeMapping[command]) {
-        logMessage('ERROR', "Mode is missing or unrecognized in the payload. Cannot proceed.", { command });
+        node.error("Mode is missing or unrecognized in the payload. Cannot proceed.", msg);
         return null;
     }
 
-    // Log the mode being set
-    logMessage('INFO', `Mode set: ${modeMapping[command]}`);
+    node.log(`Mode set: ${modeMapping[command]}`);
 
     // Process the action with enhanced error context
     const action = msg.payload.event.action;
     if (typeof action !== 'string') {
-        logMessage('ERROR', "Action is not a valid string.", { action });
+        node.error("Action is not a valid string.", msg);
         return null;
-    }    // Use a switch-case to process actions, sending all through single output
+    }
+    // Use a switch-case to process actions, sending all through single output
     switch (action) {
         case 'ALARMO_RETRY_ARM':
-            logMessage('INFO', "Processing Retry Arm Action");
+            node.log("Processing Retry Arm Action");
             msg.payload = { ...msg.payload, mode: modeMapping[command], action_type: 'retry', force: false };
             return msg;  // Single output
         case 'ALARMO_FORCE_ARM':
-            logMessage('INFO', "Processing Force Arm Action");
+            node.log("Processing Force Arm Action");
             msg.payload = { ...msg.payload, mode: modeMapping[command], action_type: 'force', force: true };
             return msg;  // Single output
         default:
-            logMessage('WARN', `Unrecognized action: ${action}`);
+            node.warn(`Unrecognized action: ${action}`);
             // Optionally, route to a default error node or output
             return null;
     }
 } catch (error) {
-    logMessage('ERROR', `Unexpected error in Mobile App Notification Action Processor: ${error.message}`, { msg });
+    node.error(`Unexpected error in Mobile App Notification Action Processor: ${error.message}`, msg);
     return null;
 }

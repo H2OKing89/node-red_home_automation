@@ -1,0 +1,31 @@
+/*
+   Changelog:
+   - Version 1.8.0:
+     - ADDED: Configurable constants for speakers, mobile devices, and message formatting
+     - IMPROVED: Consistent error handling with correct output array lengths
+     - REFACTORED: Mobile notification creation using a helper function
+     - ENHANCED: Support for flexible message formatting with/without timestamps
+   
+   - Version 1.7.0:
+     - ADDED: Google TTS implementation using tts.google_say format
+     - IMPROVED: Multi-platform TTS support for both Sonos and Google speakers
+     - UPDATED: Return array now includes both Sonos and Google TTS messages
+   
+   - Version 1.6.0:
+     - REPLACED: Moment.js with date-fns and date-fns-tz for improved date/time handling
+     - IMPROVED: Direct use of Node-RED logging functions (node.log, node.warn, node.error, node.debug)
+     - REMOVED: Custom logging system in favor of built-in Node-RED logging
+     - ENHANCED: TTS payload formatting following best practices from documentation
+   
+   - Version 1.5.0:
+     - REMOVED: Complete retry mechanism and all retry-related configuration (maxRetries, initialDelay, backoffFactor, etc.)
+     - ADDED: Enhanced actionable notifications for arm failure events with "Retry Arm" and "Force Arm" action buttons
+     - IMPROVED: Conditional actionable notifications - only arm failures get action buttons, disarm failures get simple notifications
+     - ENHANCED: High priority, sticky notifications with alarm-specific channel and visual styling for arm failures
+     - STREAMLINED: Code structure by removing retry complexity while maintaining core functionality
+   
+   - Version 1.4.2-SonosTTS:
+     - Modified date handling: if event.time_fired is missing, check payload.time_fired before falling back to current time.
+     - Updated TTS output to use the new Sonos announcement payload format.
+     - Other robust dependency and error-handling enhancements from version 1.4.1.
+*/

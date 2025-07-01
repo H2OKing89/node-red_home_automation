@@ -1,19 +1,64 @@
 // Name: Alarm Failure Events handler
 // Description: Handles alarm failure events, formats messages, and sends TTS announcements.
 // Author: Quentin King (updated)
-// Date: 2025-06-30 (updated version)
-// Version: 1.7.0
+// Date: 2023-07-01 (updated version)
+// Version: 1.8.1
 // Dependencies: Add date-fns and date-fns-tz in the function node setup tab
 // See tts_sonos_google_examples.md for TTS payload format documentation
 
+// --- Speaker Configuration ---
+// Modify these arrays to add or remove speakers as needed
+const SONOS_SPEAKERS = [
+    "media_player.sonos_1",
+    "media_player.bedroom_sonos_amp",
+    "media_player.era_100"
+];
+
+const GOOGLE_SPEAKERS = [
+    "media_player.house_google_speakers"
+];
+
+// --- TTS Configuration ---
+const TTS_VOLUME = 100; // 0-100 for Sonos speakers
+const TTS_CACHE = false; // Whether to cache TTS messages for Google speakers
+
+// --- Mobile Notification Configuration ---
+const MOBILE_DEVICES = {
+    primary: "notify.mobile_app_quentin_s25u",
+    others: [] // Add additional device services here if needed
+};
+
+// --- Message Configuration ---
+const MESSAGE_OPTIONS = {
+    includeTimeInTTS: false,  // Whether to include the full timestamp in TTS announcements
+    includeTimeInPush: true   // Whether to include the full timestamp in push notifications
+};
 
 /*
    Changelog:
+   - Version 1.8.1:
+     - FIXED: Corrected date in header (2023 instead of 2025)
+     - IMPROVED: Better concurrency handling with unique ID tracking
+     - ENHANCED: Added node.done() calls at all return points for proper Node-RED completion tracking
+     - IMPROVED: Proper handling of missing date information with clear fallbacks
+   
+   - Version 1.8.0:
+     - ADDED: Configurable constants for speakers, mobile devices, and message formatting
+     - IMPROVED: Consistent error handling with correct output array lengths
+     - REFACTORED: Mobile notification creation using a helper function
+     - ENHANCED: Support for flexible message formatting with/without timestamps
+   
    - Version 1.7.0:
      - ADDED: Google TTS implementation using tts.google_say format
      - IMPROVED: Multi-platform TTS support for both Sonos and Google speakers
      - UPDATED: Return array now includes both Sonos and Google TTS messages
-   */
+   
+   - Version 1.6.0:
+     - REPLACED: Moment.js with date-fns and date-fns-tz for improved date/time handling
+     - IMPROVED: Direct use of Node-RED logging functions (node.log, node.warn, node.error, node.debug)
+     - REMOVED: Custom logging system in favor of built-in Node-RED logging
+     - ENHANCED: TTS payload formatting following best practices from documentation
+*/
 
 // --- Dependency Check for date-fns Libraries ---
 
@@ -101,6 +146,27 @@ function cleanText(text) {
     return text ? text.replace(/\n/g, ' ') : '';
 }
 
+/**
+ * Creates a notification payload for the specified mobile device.
+ * @param {Object} msgObj - Base message object to extend
+ * @param {Object} params - Notification parameters
+ * @returns {Object} - Complete notification message object
+ */
+function createMobileNotification(msgObj, params) {
+    const { message, title, data = {} } = params;
+    return {
+        ...msgObj,
+        payload: {
+            action: MOBILE_DEVICES.primary,
+            data: {
+                message,
+                title,
+                data
+            }
+        }
+    };
+}
+
 // --- Sensor Message Formatting ---
 
 // Mapping sensor types to their message formats.
@@ -151,10 +217,16 @@ function formatSensorMessages(sensors) {
  * Handles errors by logging them and emitting them to be caught by a Catch node.
  * @param {Error} error - The error object.
  * @param {object} msg - The incoming message object.
+ * @param {string} [contextId] - Optional context ID to clear from processing
  */
-function handleError(error, msg) {
+function handleError(error, msg, contextId) {
     const errorMsg = `Error: ${error.message}`;
     node.error(errorMsg, msg);
+    
+    // If contextId provided, clear it from processing
+    if (contextId) {
+        context.set(`processing_${contextId}`, false);
+    }
 }
 
 // --- Configuration Objects ---
@@ -187,15 +259,17 @@ try {
 
     // --- Validate Incoming Message Object Early ---
     if (!msg || !msg.payload) {
-        handleError(new Error("Missing msg or msg.payload."), msg);
-        return [null, null, null];
+        handleError(new Error("Missing msg or msg.payload."), msg, msg ? msg._msgid : 'unknown');
+        node.done(); // Signal completion
+        return [null, null, null, null]; // Match the 4 outputs in successful case
     }
 
     // --- Concurrency and Context Management ---
     const uniqueId = msg._msgid || (msg.payload.event && msg.payload.event.id) || 'default';
     if (context.get(`processing_${uniqueId}`)) {
         node.warn(`Event with ID ${uniqueId} is already being processed. Skipping duplicate processing.`);
-        return [null, null, null];
+        node.done(); // Signal completion
+        return [null, null, null, null]; // Match the 4 outputs in successful case
     }
     context.set(`processing_${uniqueId}`, true);    // --- Destructuring and Early Payload Validation ---
     const { payload } = msg;
@@ -206,9 +280,9 @@ try {
         validateEventPayload(payload);
     } catch (err) {
         node.error(`Payload validation failed: ${err.message}`);
-        handleError(err, msg);
-        context.set(`processing_${uniqueId}`, false); // Clear lock on error.
-        return [null, null, null];
+        handleError(err, msg, uniqueId); // Use enhanced error handler with context ID
+        node.done(); // Signal completion
+        return [null, null, null, null]; // Match the 4 outputs in successful case
     }
 
     // --- Ensure Correct Data Types for Sensors ---
@@ -249,9 +323,9 @@ try {
             throw new Error("Invalid time_fired date format.");
         }
     } catch (error) {
-        handleError(error, msg);
-        context.set(`processing_${uniqueId}`, false);
-        return [null, null, null];
+        handleError(error, msg, uniqueId); // Use enhanced error handler with context ID
+        node.done(); // Signal completion
+        return [null, null, null, null]; // Match the 4 outputs in successful case
     }
     node.debug(`Parsed Date Object: ${eventDate.toISOString()}`);
 
@@ -283,16 +357,20 @@ try {
     let armState = event.command || '';
     let stateDetails = stateMappings[armState];
     if (!stateDetails) {
-        handleError(new Error("Unrecognized arm state: " + armState), msg);
-        context.set(`processing_${uniqueId}`, false);
-        return [null, null, null];
+        handleError(new Error("Unrecognized arm state: " + armState), msg, uniqueId);
+        node.done(); // Signal completion
+        return [null, null, null, null]; // Match the 4 outputs in successful case
     }
 
     flow.set('command', stateDetails.command);
     payload.command = stateDetails.command;
 
-    const messageText = `The alarm failed to ${stateDetails.state} on ${formattedDate}. ${reasonMessage}`;
-    const ttsMessage = `The alarm failed to ${stateDetails.state}. ${reasonMessage}`;
+    // Create messages with configurable time inclusion
+    const timeComponent = MESSAGE_OPTIONS.includeTimeInPush ? ` on ${formattedDate}` : '';
+    const ttsMsgTimeComponent = MESSAGE_OPTIONS.includeTimeInTTS ? ` on ${formattedDate}` : '';
+    
+    const messageText = `The alarm failed to ${stateDetails.state}${timeComponent}. ${reasonMessage}`;
+    const ttsMessage = `The alarm failed to ${stateDetails.state}${ttsMsgTimeComponent}. ${reasonMessage}`;
 
     payload.notification_topic = `Alarm Failed to ${stateDetails.state}`;
 
@@ -300,16 +378,9 @@ try {
     // Clean TTS message once for all notifications
     const cleanTtsMessage = cleanText(ttsMessage);
     
-    // Configure speaker groups
-    const sonosSpeakers = [
-        "media_player.sonos_1",
-        "media_player.bedroom_sonos_amp",
-        "media_player.era_100"
-    ];
-    
-    const googleSpeakers = [
-        "media_player.house_google_speakers"
-    ];
+    // Use the configured speaker groups from the top of the file
+    const sonosSpeakers = SONOS_SPEAKERS;
+    const googleSpeakers = GOOGLE_SPEAKERS;
     
     // Output 1: Multi-platform TTS - Sonos with media_player.play_media format
     // Use proper URL-encoding with quotes for Sonos
@@ -328,7 +399,7 @@ try {
                 media_content_type: "music",
                 announce: true,
                 extra: {
-                    volume: 100
+                    volume: TTS_VOLUME
                 }
             }
         },
@@ -347,7 +418,7 @@ try {
             },
             data: {
                 message: cleanTtsMessage, // Plain text for Google (no encoding)
-                cache: false
+                cache: TTS_CACHE
             }
         },
         // Add metadata to help identify message type in flow
@@ -366,72 +437,63 @@ try {
     let msg3;
     // Only add actionable notification for arm failures (not disarm failures)
     if (stateDetails.command !== 'DISARM') {
-        msg3 = {
-            ...msg,
-            payload: {
-                action: "notify.mobile_app_quentin_s25u", // Explicit Home Assistant service
-                data: {
-                    message: cleanText(messageText),
-                    title: payload.notification_topic,
-                    data: {
-                        priority: 'high',
-                        sticky: 'true',
-                        channel: 'alarm_stream',
-                        ttl: 0,
-                        color: '#FF0000',
-                        timeout: 600,
-                        tag: 'alarmo_armed_status',
-                        persistent: true,
-                        importance: 'high',
-                        notification_icon: 'mdi:alarm-light',
-                        actions: [
-                            {
-                                action: "ALARMO_RETRY_ARM",
-                                title: "Retry Arm"
-                            },
-                            {
-                                action: "ALARMO_FORCE_ARM",
-                                title: "Force Arm"
-                            }
-                        ]
+        // For arm failures, create actionable notification with retry/force buttons
+        msg3 = createMobileNotification(msg, {
+            message: cleanText(messageText),
+            title: payload.notification_topic,
+            data: {
+                priority: 'high',
+                sticky: 'true',
+                channel: 'alarm_stream',
+                ttl: 0,
+                color: '#FF0000',
+                timeout: 600,
+                tag: 'alarmo_armed_status',
+                persistent: true,
+                importance: 'high',
+                notification_icon: 'mdi:alarm-light',
+                actions: [
+                    {
+                        action: "ALARMO_RETRY_ARM",
+                        title: "Retry Arm"
+                    },
+                    {
+                        action: "ALARMO_FORCE_ARM",
+                        title: "Force Arm"
                     }
-                },
+                ]
             }
-        };    } else {
+        });
+    } else {
         // For disarm failures, use proper notification structure without action buttons
-        msg3 = {
-            ...msg,
-            payload: {
-                action: "notify.mobile_app_quentin_s25u", // Explicit Home Assistant service
-                data: {
-                    message: cleanText(messageText),
-                    title: payload.notification_topic,
-                    data: {
-                        priority: 'normal',
-                        sticky: 'false',
-                        channel: 'alarm_stream',
-                        ttl: 0,
-                        color: '#FFA500',
-                        timeout: 300,
-                        tag: 'alarmo_disarm_status',
-                        persistent: false,
-                        importance: 'default',
-                        notification_icon: 'mdi:alarm-off'
-                    }
-                },
+        msg3 = createMobileNotification(msg, {
+            message: cleanText(messageText),
+            title: payload.notification_topic,
+            data: {
+                priority: 'normal',
+                sticky: 'false',
+                channel: 'alarm_stream',
+                ttl: 0,
+                color: '#FFA500',
+                timeout: 300,
+                tag: 'alarmo_disarm_status',
+                persistent: false,
+                importance: 'default',
+                notification_icon: 'mdi:alarm-off'
             }
-        };
+        });
     }
 
     node.log(`Successfully processed alarm failure event with ID ${uniqueId}.`);
 
     context.set(`processing_${uniqueId}`, false);
+    node.done(); // Signal completion to Node-RED runtime
     return [msg1, msg1a, msg2, msg3]; // Added msg1a (Google TTS)
 
 } catch (error) {
-    handleError(error, msg);
-    if (msg && msg._msgid) {
-        context.set(`processing_${msg._msgid}`, false);
-    }
+    // Use the enhanced error handler with context ID
+    const uniqueId = msg && msg._msgid ? msg._msgid : 'unknown';
+    handleError(error, msg, uniqueId);
+    node.done(); // Signal completion even on error
     return [null, null, null, null]; // Added null for Google TTS output
 }

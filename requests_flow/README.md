@@ -39,6 +39,12 @@ These function nodes are designed to be used in Node-RED flows for:
 
 ---
 
+## Example Screenshots
+
+### Request Flow Overview
+
+![Request flow overview](docs/images/jellyseerr_request_flow_screenshot.png)
+
 This is just the start of the types of automation and integrations possible in this directory. More flows, event handlers, and automation logic will be added over time—the possibilities are endless!
 
 For more details, see comments in each script file.

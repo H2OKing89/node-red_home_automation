@@ -91,4 +91,12 @@ These function nodes are designed to be used in Node-RED flows for:
 
 ---
 
-For more details, see comments in each script file and the markdown docs in `doc/`.
+## Example Screenshots
+
+### Actionable Notification
+
+![North Garage Flow Screenshot](docs/images/north_garage_flow_screenshot.png)
+
+---
+
+For more details, see comments in each script file and the markdown docs in `docs/`.

@@ -93,7 +93,9 @@ These function nodes are designed to be used in Node-RED flows for:
 
 ## Example Screenshots
 
-### Actionable Notification
+### North Garage Flow Overview
+
+This is a high-level overview of the North Garage automation flow, showing how the different components interact
 
 ![North Garage Flow Screenshot](docs/images/north_garage_flow_screenshot.png)
 

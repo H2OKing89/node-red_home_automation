@@ -6,11 +6,11 @@ The `garage_left_open_notify.js` script is a Node-RED function node that sends n
 
 ## Features
 
-- **Multi-platform notifications**: Supports both Android and iOS push notifications
-- **TTS support**: Works with Sonos speakers and Google Home devices
-- **Environment-based configuration**: Uses Node-RED environment variables for flexible device management
-- **Robust error handling**: Validates configuration and prevents empty device arrays
-- **Debug logging**: Provides detailed logging for troubleshooting
+* **Multi-platform notifications**: Supports both Android and iOS push notifications
+* **TTS support**: Works with Sonos speakers and Google Home devices
+* **Environment-based configuration**: Uses Node-RED environment variables for flexible device management
+* **Robust error handling**: Validates configuration and prevents empty device arrays
+* **Debug logging**: Provides detailed logging for troubleshooting
 
 ## Configuration
 
@@ -20,66 +20,67 @@ The script requires three environment variables to be configured in Node-RED:
 
 #### TTSDEVICES
 
-This variable defines the TTS devices (speakers) that will announce the garage closure. The value should be a JSON array of device objects.
-
-**Format:**
-
-```json
-[
-  {
-    "type": "sonos",
-    "entity": "media_player.kitchen_sonos",
-    "language": "en-us"
-  },
-  {
-    "type": "google",
-    "entity": "media_player.living_room_google_home", 
-    "language": "en"
-  }
-]
-```
-
-**Properties:**
-
-- `type`: Speaker type - either "sonos" or "google"
-- `entity`: Home Assistant entity ID for the speaker
-- `language`: Language code for TTS (e.g., "en-us", "en", "es")
-
-#### NOTIFY_MAP_ANDROID
-
-This variable maps user names to their Android device notification services.
+This variable defines the TTS devices (speakers) that will announce the garage closure. The value must be a **flat JSON object** with `sonos` and `google` arrays. **Do not nest under a 'TTSdevices' key.**
 
 **Format:**
 
 ```json
 {
-  "quentin": "mobile_app_pixel_7_pro",
-  "sarah": "mobile_app_samsung_galaxy"
+  "sonos": [
+    "media_player.sonos_1",
+    "media_player.bedroom_sonos_amp",
+    "media_player.era_100"
+  ],
+  "google": [
+    "media_player.kitchen_home_mini",
+    "media_player.garage_home_mini",
+    "media_player.family_room_home_mini",
+    "media_player.basement_bedroom_hub2"
+  ]
 }
 ```
 
 **Structure:**
 
-- Key: User name or identifier
-- Value: Home Assistant mobile app service name (without "notify." prefix)
+* `sonos`: Array of Home Assistant Sonos speaker entity IDs
+* `google`: Array of Home Assistant Google Home/Nest speaker entity IDs
 
-#### NOTIFY_MAP_IOS
+#### NOTIFY\_MAP\_ANDROID
 
-This variable maps user names to their iOS device notification services.
+This variable maps notification keys to Android device notification services. The script looks for the `garage_notify` key.
 
 **Format:**
 
 ```json
 {
-  "john": "mobile_app_iphone_13",
-  "mary": "mobile_app_ipad_pro"
+  "garage_notify": [
+    "notify.mobile_app_quentin_s25u",
+    "notify.mobile_app_quentin_g7u"
+  ]
 }
 ```
 
 **Structure:**
 
-- Key: User name or identifier  
-- Value: Home Assistant mobile app service name (without "notify." prefix)
+* `garage_notify`: Array of Home Assistant Android mobile app notification service names (with "notify." prefix)
+
+#### NOTIFY\_MAP\_IOS
+
+This variable maps notification keys to iOS device notification services. The script looks for the `garage_notify` key.
+
+**Format:**
+
+```json
+{
+  "garage_notify": [
+    "notify.mobile_app_quentin_ipad_pro_13"
+  ]
+}
+```
+
+**Structure:**
+
+* `garage_notify`: Array (or single string) of Home Assistant iOS mobile app notification service names (with "notify." prefix)
 
 ### Setting Environment Variables in Node-RED
 
@@ -87,23 +88,47 @@ This variable maps user names to their iOS device notification services.
 2. Add the environment variables to the `functionGlobalContext` or use the Node-RED environment variable system
 3. Alternatively, set them as system environment variables before starting Node-RED
 
-**Example in settings.js:**
+**Examples:**
 
-```javascript
-functionGlobalContext: {
-    TTSDEVICES: JSON.stringify([
-        {
-            "type": "sonos",
-            "entity": "media_player.kitchen_sonos",
-            "language": "en-us"
-        }
-    ]),
-    NOTIFY_MAP_ANDROID: JSON.stringify({
-        "quentin": "mobile_app_pixel_7_pro"
-    }),
-    NOTIFY_MAP_IOS: JSON.stringify({
-        "john": "mobile_app_iphone_13"
-    })
+`NOTIFY_MAP_ANDROID`
+
+```json
+{
+  "garage_notify": [
+    "notify.mobile_app_quentin_s25u",
+    "notify.mobile_app_roxy_s25u",
+    "notify.mobile_app_quentin_g7u"
+  ]
+}
+```
+
+`NOTIFY_MAP_IOS`
+
+```json
+{
+  "garage_notify": [
+    "notify.mobile_app_quentin_ipad_pro_13",
+    "notify.mobile_app_sylphiette_iphone_16pro",
+    "notify.mobile_app_eris_iphone_16pro_max"
+  ]
+}
+```
+
+`TTSDEVICES`
+
+```json
+{
+  "sonos": [
+    "media_player.sonos_1",
+    "media_player.bedroom_sonos_amp",
+    "media_player.era_100"
+  ],
+  "google": [
+    "media_player.kitchen_home_mini",
+    "media_player.garage_home_mini",
+    "media_player.family_room_home_mini",
+    "media_player.basement_bedroom_hub2"
+  ]
 }
 ```
 
@@ -158,22 +183,22 @@ const timeZone = 'America/Chicago'; // Set your desired timezone
 
 ### Push Notifications
 
-- **Android**: HTML-formatted with colored text and styling
-- **iOS**: Plain text with standard formatting
-- **Both**: Include duration and timestamp
+* **Android**: HTML-formatted with colored text and styling
+* **iOS**: Plain text with standard formatting
+* **Both**: Include duration and timestamp
 
 ### TTS Messages
 
-- Plain text optimized for speech
-- Includes duration and formatted timestamp
-- Same message content for both Sonos and Google speakers
+* Plain text optimized for speech
+* Includes duration and formatted timestamp
+* Same message content for both Sonos and Google speakers
 
 ## Error Handling
 
-- Validates required input payload structure
-- Checks for empty device arrays before creating TTS payloads
-- Logs warnings for missing configuration
-- Filters out null payloads to prevent Home Assistant errors
+* Validates required input payload structure
+* Checks for empty device arrays before creating TTS payloads
+* Logs warnings for missing configuration
+* Filters out null payloads to prevent Home Assistant errors
 
 ## Usage Example
 
@@ -186,7 +211,7 @@ const timeZone = 'America/Chicago'; // Set your desired timezone
 
 This function is designed to work as part of the garage automation flow:
 
-``` plaintext
+```plaintext
 cover_state.handler.js → garage_left_open_notify.js → [Notification Services]
                                                     → [TTS Services]
 ```

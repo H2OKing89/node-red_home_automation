@@ -23,46 +23,48 @@ This directory contains Node-RED function nodes and documentation for automating
 
 ## Environment Variables
 
-The notification script requires the following environment variables to be configured in Node-RED. See `doc/garage_left_open_notify.md` for detailed configuration instructions.
+The notification script requires the following environment variables to be configured in Node-RED. See `docs/garage_left_open_notify.md` for detailed configuration instructions.
 
 ### TTSDEVICES
 
 JSON array configuration for TTS speakers:
 
 ```json
-[
-  {
-    "type": "sonos",
-    "entity": "media_player.kitchen_sonos",
-    "language": "en-us"
-  },
-  {
-    "type": "google",
-    "entity": "media_player.living_room_google_home",
-    "language": "en"
-  }
-]
+{
+  "sonos": [
+      "media_player.sonos_1",
+      "media_player.bedroom_sonos_amp",
+      "media_player.era_100"
+  ],
+  "google": [
+      "media_player.kitchen_home_mini",
+      "media_player.garage_home_mini",
+      "media_player.family_room_home_mini",
+      "media_player.basement_bedroom_hub2"
+  ]
+}
 ```
 
 ### NOTIFY_MAP_ANDROID
 
-JSON object mapping users to Android notification services:
+JSON object configuration for Android notification services:
 
 ```json
 {
-  "quentin": "mobile_app_pixel_7_pro",
-  "roxy": "mobile_app_samsung_galaxy"
+  "garage_notify": [
+    "notify.mobile_app_quentin_s25u",
+    "notify.mobile_app_quentin_g7u"
+  ]
 }
 ```
 
 ### NOTIFY_MAP_IOS
 
-JSON object mapping users to iOS notification services:
+JSON object configuration for iOS notification services:
 
 ```json
 {
-  "sylphiette": "mobile_app_iphone_13",
-  "eris": "mobile_app_ipad_pro"
+  "garage_notify": "notify.mobile_app_quentin_ipad_pro_13"
 }
 ```
 

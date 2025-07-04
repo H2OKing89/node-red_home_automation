@@ -6,25 +6,22 @@
 const { formatInTimeZone } = dateFnsTz;
 const timeZone = 'America/Chicago'; // Set your desired timezone here
 
+// Get TTS devices from environment variable
+const ttsDevicesRaw = env.get('TTSDEVICES');
+const ttsDevices = typeof ttsDevicesRaw === 'string' ? JSON.parse(ttsDevicesRaw) : (ttsDevicesRaw || {"sonos":[],"google":[]});
+
 // Configure Home Assistant entities devices for TTS and volume control
 const ttsConfig = {
-    devices: {
-        sonos: [
-            "media_player.sonos_1",
-            "media_player.bedroom_sonos_amp",
-            "media_player.era_100"
-        ],
-        google: [
-            "media_player.all_home_speaker" // Uncomment this line to enable Google Home speaker TTS. Testing with Sonos only for now
-        ]
-    },
+    devices: ttsDevices,
     volumes: { sonos: 100 }, // Sonos volume level (0-100)
     googleVolume: 1.0 // Google speaker volume (0.0-1.0) 1.0 = 100%
 };
 
-// Get notify maps from global context for Android and iOS entities for Home Assistant
-const notifyMapAndroid = global.get("notifyMapAndroid");
-const notifyMapIOS = global.get("notifyMapIOS");
+// Get notify maps from environment variables for Android and iOS entities for Home Assistant
+const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
+const notifyMapIOSRaw = env.get("NOTIFY_MAP_IOS");
+const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
+const notifyMapIOS = typeof notifyMapIOSRaw === 'string' ? JSON.parse(notifyMapIOSRaw) : (notifyMapIOSRaw || {});
 
 if (!msg.payload || !msg.payload.openDurationSeconds) {
     node.error('Missing openDurationSeconds in msg.payload');

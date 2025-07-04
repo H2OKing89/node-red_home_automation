@@ -15,9 +15,56 @@ This directory contains Node-RED function nodes and documentation for automating
 - **garage_left_open_notify.js**
   - Sends notifications and TTS messages when the garage door is left open and is closed automatically by automation.
   - Supports push notifications to Android/iOS and TTS to Sonos/Google Home speakers.
+  - Requires environment variables for device configuration (see `doc/garage_left_open_notify.md`).
+  - See detailed documentation in `doc/garage_left_open_notify.md`.
 
 - **doc/**
   - Contains detailed markdown documentation for each handler and automation logic.
+
+## Environment Variables
+
+The notification script requires the following environment variables to be configured in Node-RED. See `doc/garage_left_open_notify.md` for detailed configuration instructions.
+
+### TTSDEVICES
+
+JSON array configuration for TTS speakers:
+
+```json
+[
+  {
+    "type": "sonos",
+    "entity": "media_player.kitchen_sonos",
+    "language": "en-us"
+  },
+  {
+    "type": "google",
+    "entity": "media_player.living_room_google_home",
+    "language": "en"
+  }
+]
+```
+
+### NOTIFY_MAP_ANDROID
+
+JSON object mapping users to Android notification services:
+
+```json
+{
+  "quentin": "mobile_app_pixel_7_pro",
+  "roxy": "mobile_app_samsung_galaxy"
+}
+```
+
+### NOTIFY_MAP_IOS
+
+JSON object mapping users to iOS notification services:
+
+```json
+{
+  "sylphiette": "mobile_app_iphone_13",
+  "eris": "mobile_app_ipad_pro"
+}
+```
 
 ## Usage
 

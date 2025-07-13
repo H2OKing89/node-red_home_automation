@@ -189,7 +189,7 @@ if (entityId === 'cover.north_garage_door' && isStateTransition(oldState, newSta
     }
 }
 // North Garage Door (to house): turn on lights and start timer when door opens
-if (entityId === 'binary_sensor.north_garage' && isStateTransition(oldState, newState)) {
+if (entityId === 'binary_sensor.north_garage_entry_door' && isStateTransition(oldState, newState)) {
     const friendlyName = getFriendlyName(msg);
     if (newState === 'on') {
         // Door opened

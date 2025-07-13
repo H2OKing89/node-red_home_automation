@@ -1,7 +1,13 @@
 // Node-RED Function Node: Garage Door Left Open Notification
 // Sends a notification to all mapped devices when the garage door was left open and is now being closed by automation.
-// Expects input from output 3 of cover_state.handler.js
+// Expects input from output 3 of cover_state_handler.js
 // Supports timezone-aware date formatting for push notifications and TTS messages.
+// ---------------------------------------------------------------------
+//                            ** NOTICE **
+// - `date-fns`, `date-fns-tz`, and `suncalc` are available as global variables when added in Setup tab.
+//    No need to use require(); just use dateFns, dateFnsTz, suncalc directly.
+// ---------------------------------------------------------------------
+//
 
 const { formatInTimeZone } = dateFnsTz;
 const timeZone = 'America/Chicago'; // Set your desired timezone here

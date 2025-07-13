@@ -113,7 +113,7 @@ if (entityId === INTERIOR_CAM || entityId === EXTERIOR_CAM) {
 }
 
 // North Garage Door (to house): extend timer on state transitions if garage is open and not overridden
-if (entityId === 'binary_sensor.north_garage' && isStateTransition(oldState, newState)) {
+if (entityId === 'binary_sensor.north_garage_entry_door' && isStateTransition(oldState, newState)) {
     const friendlyName = getFriendlyName(msg);
     
     if (!override && state === 'open') {

@@ -22,9 +22,6 @@ const DURATION_KEY = 'garage_lights_timer_duration';
 // === Helper: Get current time ===
 const now = Date.now();
 
-// Check if automation just triggered a light on
-let justAutomated = flow.get('garage_lights_just_automated') || false;
-
 // === Extract state information ===
 // New state (what triggered this message)
 const newState = msg.payload;
@@ -89,11 +86,11 @@ if (entityId === 'light.north_garage_lights') {
     // Only act on actual state transitions (off -> on or on -> off)
     if (isStateTransition(oldState, newState)) {
         if (newState === 'on') {
-            // Light just turned on
-            if (justAutomated) {
-                // This was triggered by our automation, not manual
+            // Light just turned on - re-check automation flag to handle race conditions
+            const currentAutomationFlag = flow.get('garage_lights_just_automated') || false;
+            if (currentAutomationFlag) {
+                // This was triggered by our automation, not manual - preserve existing status
                 flow.set('garage_lights_just_automated', false);
-                node.status({ fill: 'green', shape: 'dot', text: 'Automation triggered lights ON' });
                 node.log(`${friendlyName} turned on by automation - timer already started`);
                 return [null, null]; // Already handled by automation, do not start timer again
             } else {

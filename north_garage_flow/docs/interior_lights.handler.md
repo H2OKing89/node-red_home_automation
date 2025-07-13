@@ -181,6 +181,16 @@ Implements comprehensive logging following Node-RED best practices:
 - Uses friendly names for better readability
 - Handles malformed or incomplete messages gracefully
 
+### Race Condition Prevention
+
+The script now handles race conditions that can occur in message sequences:
+
+- **Automation Flag Management:** Re-reads automation flags when handling light state events to prevent stale data
+- **Status Message Preservation:** Maintains meaningful status messages from triggering events instead of overwriting with generic automation confirmations
+- **Message Sequence Handling:** Properly distinguishes between automation-triggered and manual light activation in rapid message sequences
+
+This ensures reliable automation behavior even when multiple events occur in quick succession.
+
 ---
 
 ## File Location

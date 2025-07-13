@@ -1,7 +1,10 @@
 // Node-RED function: Garage Interior Lights Automation with Timer
 // Outputs: [toTrigger, toOff]
-//
-// **Note:** When you add `suncalc` as a module in the Node-RED function node's setup tab, you do **not** use `require`. The module is available as a global variable (e.g., `suncalc`).
+// ---------------------------------------------------------------------
+// ** NOTICE ** 
+// suncalc is available as a global variable when added in the Setup tab
+// No need to use require(); just use suncalc directly
+// ---------------------------------------------------------------------
 //
 // Logging Strategy:
 // - node.log() for important automation events (lights on/off, timer actions)

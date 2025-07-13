@@ -21,7 +21,7 @@ This document explains how to use the `date-fns` and `date-fns-tz` libraries for
 
 ## How to Use in Node-RED Function Nodes
 
-> **Note:** When you add `date-fns` and `date-fns-tz` as modules in the Node-RED function node's setup tab, you do **not** use `require`. The modules are available as global variables (e.g., `dateFns`, `dateFnsTz`).
+> **Note:** When you add `date-fns` and `date-fns-tz` as modules in a Node-RED function node’s Setup tab, you do **not** need to use `require`. The modules are automatically available as global variables—use `dateFns` and `dateFnsTz` directly in your code.
 
 ---
 

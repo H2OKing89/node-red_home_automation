@@ -21,7 +21,7 @@ This document explains how to use the [`suncalc`](https://github.com/mourner/sun
 
 ## How to Use in Node-RED Function Nodes
 
-> **Note:** When you add `suncalc` as a module in the Node-RED function node's setup tab, you do **not** use `require`. The module is available as a global variable (e.g., `suncalc`).
+> **Note:** When you add `suncalc` as a module in a Node-RED function node’s Setup tab, you do **not** need to use `require`. The module is automatically available as a global variable—use `suncalc` directly in your code.
 
 ---
 

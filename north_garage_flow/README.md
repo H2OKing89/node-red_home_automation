@@ -10,6 +10,8 @@ This directory contains Node-RED function nodes and documentation for automating
 
 - **interior_lights.handler.js**
   - Automates the North Garage interior lights based on person detection, garage/house door events, and time of day (dusk/dawn).
+  - Features proper state transition detection, enhanced logging, and SunCalc integration for dark/light detection.
+  - Uses Node-RED function node best practices with comprehensive error handling.
   - See detailed documentation in `doc/interior_lights.handler.md`.
 
 - **garage_left_open_notify.js**
@@ -86,6 +88,8 @@ These function nodes are designed to be used in Node-RED flows for:
 
 - All timer and state management is handled via Node-RED flow context.
 - Designed for use with Home Assistant events and SunCalc/date-fns-tz for time calculations.
+- Scripts use proper state transition detection to avoid false triggers from repeated state reports.
+- Comprehensive logging strategy following Node-RED function node best practices.
 - Documentation for each handler is available in the `doc/` subdirectory.
 - This is just the start—more garage automation logic and integrations can be added in the future.
 

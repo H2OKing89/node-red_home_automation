@@ -4,39 +4,41 @@
  * Description:
  *  - Restricts notifications to be sent between 07:00 and 22:00 in America/Chicago.
  *  - Bypasses time restrictions for "Tornado Warning" events.
- *  - Uses Moment.js for reliable timezone handling.
+ *  - Uses date-fns and date-fns-tz for reliable timezone handling.
  *  - Fully configurable via global context or node properties.
  *
- * Version: 1.1.1
+ * Version: 1.2.0
  * Author: Quentin (patched)
- * Date: 05/21/2025
+ * Date: 07/09/2025
  *
  * Changelog:
+ *  v1.2.0 - Switched to date-fns/date-fns-tz for timezone handling; removed moment.
  *  v1.1.1 - Switched to America/Chicago timezone; added global context config;
  *           improved error handling and logging levels.
  *  v1.1.0 - Added error handling, timezone support, and configurability.
  *  v1.0.0 - Initial version.
  *
  * Dependencies:
- *  - moment and moment-timezone installed and available via global.get('moment')
+ *  - date-fns and date-fns-tz available as global variables (dateFns, dateFnsTz)
  */
 
 // === Configuration ===
-// Suggestion: validate that retrieved globals are of expected type/format
+// Set config statically here; edit as needed for your deployment
 const config = {
-    timezone: global.get('NOTIF_TIMEZONE') || 'America/Chicago',
-    startHour: Number(global.get('NOTIF_START_HOUR')) || 7,        // Ensure numeric
-    endHour: Number(global.get('NOTIF_END_HOUR')) || 22,           // Ensure numeric
+    timezone: 'America/Chicago', // IANA timezone string
+    startHour: 7,               // Start hour (24h format)
+    endHour: 22,                // End hour (24h format)
     bypassEvent: 'Tornado Warning'
 };
 
-// Helper: get moment with timezone once
-let momentLib;
+// Helper: get date-fns-tz utilities
+let formatInTimeZone, zonedTimeToUtc;
 try {
-    momentLib = global.get('moment');
-    if (!momentLib?.tz) {
-        throw new Error('Moment-timezone not available');
+    if (!dateFnsTz?.formatInTimeZone) {
+        throw new Error('date-fns-tz not available');
     }
+    formatInTimeZone = dateFnsTz.formatInTimeZone;
+    zonedTimeToUtc = dateFnsTz.zonedTimeToUtc;
 } catch (err) {
     node.error(`Timezone library missing: ${err.message}`);
 }
@@ -51,8 +53,10 @@ const eventName = alerts[0].Event;  // Consider destructuring for clarity
 
 // Determine current hour in configured timezone
 let currentHour;
-if (momentLib) {
-    currentHour = momentLib().tz(config.timezone).hour();
+if (formatInTimeZone) {
+    // Use date-fns-tz to get the hour in the configured timezone
+    const now = new Date();
+    currentHour = Number(formatInTimeZone(now, config.timezone, 'H'));
 } else {
     currentHour = new Date().getHours();
     node.warn('Using local server time; timezone may be incorrect.');

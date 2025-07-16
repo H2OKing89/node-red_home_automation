@@ -1,3 +1,5 @@
 sync_global_json.py
 node-red_global.json
 config/
+.env
+.venv/

@@ -5,7 +5,7 @@
 // Changelog v2.7.0: Improved adherence to Node-RED best practices - proper error handling, message preservation, appropriate logging levels
 
 // Load global whitelists and mappings for tags and users
-const tagMap  = global.get("tag-whitelist", "file")  || {};
+const tagMap  = global.get("tag-whitelist_alarm_cover", "file")  || {};
 const userMap = global.get("user-whitelist", "file") || {};
 node.log(`Maps loaded: tags=${Object.keys(tagMap).length}, users=${Object.keys(userMap).length}`);
 
@@ -162,8 +162,10 @@ try {
         }
     });
 
-    // Second output: user code for door display or similar (new message)
-    const userCodeMsg = { payload: userInfo.user_code };
+    // Second output: user code for alarm control (conditional based on tag permissions)
+    const userCodeMsg = tagInfo.alarm_control
+        ? { payload: userInfo.user_code }
+        : null;
     
     // Third output: optional garage access command if allowed by tag (new message)
     const garageAccessMsg = tagInfo.garage_access

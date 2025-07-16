@@ -33,9 +33,13 @@ if (req.method === 'OPTIONS') {
     }];
 }
 
+
 // Get the Authorization header (case-insensitive)
 const headers = req.headers || {};
 const authHeader = headers['authorization'] || headers['Authorization'];
+
+// Get the real client IP address
+let clientIp = headers['x-real-ip'] || headers['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown';
 
 // Get the expected secret (set this securely!)
 const secret = global.get('auth_secret') || env.get('AUTH_SECRET');
@@ -57,7 +61,7 @@ if (authHeader) {
 }
 
 // Log authentication attempt (without exposing the token)
-node.debug(`Authentication attempt from ${req.connection?.remoteAddress || 'unknown'} for ${req.method} ${req.url}`);
+node.debug(`Authentication attempt from ${clientIp} for ${req.method} ${req.url}`);
 
 // Prepare CORS & content-type headers for the response
 const responseHeaders = {
@@ -80,7 +84,7 @@ if (token === secret) {
     return [msg, resMsg];
 } else {
     // Auth fail: block output 1, respond 401
-    node.warn(`Authentication failed from ${req.connection?.remoteAddress || 'unknown'} - ${authHeader ? 'invalid token' : 'missing authorization header'}`);
+    node.warn(`Authentication failed from ${clientIp} - ${authHeader ? 'invalid token' : 'missing authorization header'}`);
     const resMsg = {
         res: msg.res,
         statusCode: 401,

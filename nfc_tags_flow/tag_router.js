@@ -1,14 +1,20 @@
 /**
  * Node-RED Function: Tag Router
- * Version: 1.0.0
+ * Version: 1.1.0
  * Date: 2025-07-16
  * Description: Routes NFC tag scans to appropriate handlers based on tag category
  * 
  * Outputs:
- * 1. Uncategorized tags (fallback for tags not in any category)
- * 2. alarm_cover tags (tag-whitelist_alarm_cover)
+ * 1. All notifications (formatted for pushover) - receives both categorized and uncategorized notifications
+ * 2. Categorized tags only (raw messages) - receives original messages for specific category processors
  * 
- * Changelog v1.0.0: Initial version with alarm_cover category support
+ * Message Flow:
+ * - Uncategorized tags: Validated → Output 1 (notification only)
+ * - Categorized tags: Notification → Output 1, Original → Output 2 
+ * 
+ * Changelog:
+ * v1.0.0: Initial version with alarm_cover category support
+ * v1.1.0: Improved error handling, consistent message formatting for pushover compatibility
  */
 
 // Load global whitelists for different tag categories
@@ -127,13 +133,38 @@ try {
     // Validate message structure
     if (!msg || typeof msg !== 'object') {
         node.error('[tag_router] Invalid message object', msg);
-        return null;
+        // Return error notification to output 1, consistent with other error handling
+        const errorMsg = {
+            payload: {
+                data: {
+                    title: "Tag Router Error",
+                    message: "Invalid message object received",
+                    details: "Message is not a valid object",
+                    timestamp: new Date().toISOString()
+                },
+                tag_name: "Error",
+                user_name: "System"
+            }
+        };
+        return [errorMsg, null];
     }
 
     // Validate payload structure
     if (!msg.payload || typeof msg.payload !== 'object') {
         node.error('[tag_router] Invalid payload structure', msg);
-        return null;
+        const errorMsg = Object.assign({}, msg, {
+            payload: {
+                data: {
+                    title: "Tag Router Error",
+                    message: "Invalid payload structure",
+                    details: "Payload is missing or not an object",
+                    timestamp: new Date().toISOString()
+                },
+                tag_name: "Error",
+                user_name: "System"
+            }
+        });
+        return [errorMsg, null];
     }
 
     // Extract tag_id from payload
@@ -142,14 +173,26 @@ try {
     // Validate required fields
     if (!tagId) {
         node.error('[tag_router] Missing tag_id in payload', msg);
-        return null;
+        const errorMsg = Object.assign({}, msg, {
+            payload: {
+                data: {
+                    title: "Tag Router Error", 
+                    message: "Missing required tag_id field",
+                    details: `Received payload: ${JSON.stringify(msg.payload)}`,
+                    timestamp: new Date().toISOString()
+                },
+                tag_name: "Error",
+                user_name: "System"
+            }
+        });
+        return [errorMsg, null];
     }
 
     // Validate user_id and device_id are also present for proper validation
     if (!userId || !deviceId) {
         node.error('[tag_router] Missing user_id or device_id in payload', msg);
         const errorMsg = buildUncategorizedNotification(msg, tagId, userId, deviceId, tagName, false, 'missing_fields');
-        return [errorMsg, null]; // Send only to output 1 (uncategorized)
+        return [errorMsg, null];
     }
 
     node.log(`[tag_router] Processing tag scan: ${tagId} (${tagName || 'unknown name'})`);
@@ -197,7 +240,7 @@ try {
         if (!userInfo || !userInfo.enabled) {
             node.warn(`[tag_router] User denied or disabled: ${userId}`);
             const errorMsg = buildUncategorizedNotification(msg, tagId, userId, deviceId, tagName, false, 'user_denied');
-            return [errorMsg, null]; // Send only to output 1 (uncategorized)
+            return [errorMsg, null];
         }
         
         // Lookup device; absence means scanning from untrusted hardware
@@ -205,13 +248,13 @@ try {
         if (!deviceInfo) {
             node.warn(`[tag_router] Unrecognized deviceId: ${deviceId}`);
             const errorMsg = buildUncategorizedNotification(msg, tagId, userId, deviceId, tagName, false, 'device_denied');
-            return [errorMsg, null]; // Send only to output 1 (uncategorized)
+            return [errorMsg, null];
         }
         
         // All validations passed: build success notification for uncategorized tag
         node.log(`[tag_router] Valid uncategorized scan: tag=${tagId}, user=${userId}, device=${deviceId}`);
         const successMsg = buildUncategorizedNotification(msg, tagId, userId, deviceId, tagName, true);
-        return [successMsg, null]; // Send only to output 1 (uncategorized)
+        return [successMsg, null];
     }
 
 } catch (err) {

@@ -15,8 +15,8 @@ const qs = obj => Object.entries(obj)
 
 node.log("Validating Pushover credentials...");
 if (!PO_USER || !PO_TOKEN) {
-    node.error("Missing Pushover credentials (PO_USER_ADMIN or PO_TOKEN_ADMIN)");
-    return null;
+    node.error("Missing Pushover credentials (PO_USER_ADMIN or PO_TOKEN_ADMIN)", msg);
+    return;
 }
 node.log("Pushover credentials found, proceeding with check.");
 
@@ -29,8 +29,9 @@ node.log("Pushover credentials found, proceeding with check.");
         node.log(`Received WAN IP: ${wanIp}`);
         if (!wanIp) throw new Error("Empty WAN IP response");
     } catch (err) {
-        node.error(`Failed to retrieve WAN IP: ${err.message}`);
-        return null;
+        node.error(`Failed to retrieve WAN IP: ${err.message}`, msg);
+        node.done();
+        return;
     }
 
     try {
@@ -48,8 +49,9 @@ node.log("Pushover credentials found, proceeding with check.");
         dnsIp = aRecord.data.trim();
         node.log(`Received DNS IP: ${dnsIp}`);
     } catch (err) {
-        node.error(`Failed to retrieve DNS A record: ${err.message}`);
-        return null;
+        node.error(`Failed to retrieve DNS A record: ${err.message}`, msg);
+        node.done();
+        return;
     }
 
     node.log(`Comparing WAN IP and DNS IP: WAN=${wanIp}, DNS=${dnsIp}`);
@@ -85,8 +87,7 @@ node.log("Pushover credentials found, proceeding with check.");
         node.debug(`WAN matches DNS: ${wanIp}`);
         node.log("No mismatch detected, no alert will be sent.");
     }
-    node.log("WAN vs DNS check completed with no mismatch");
-    return null;
+    node.log("WAN vs DNS check completed");
+    node.done();
 })();
-node.log("Function execution ended.");
-return null;
+// Async function will handle completion via node.done()

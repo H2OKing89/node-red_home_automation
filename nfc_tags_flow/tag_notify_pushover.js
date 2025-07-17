@@ -1,10 +1,9 @@
 /**
- * Node-RED Function: Pushover Notification Builder (Refactored v3.1)
- * Version: 2025-07-15
- * Description: Builds a Pushover payload for tag-scan notifications, with improved destructuring,
- * single-timestamp handling, DRY HTML builder, rate-limiting helper, and full try/catch.
- * Updated to use date-fns/date-fns-tz instead of moment.
- * Follows Node-RED function node best practices.
+ * Node-RED Function: Pushover Notification Builder (Refactored v3.3)
+ * Version: 2025-07-16
+ * Description: Builds a Pushover payload for tag-scan notifications with improved error handling,
+ * simplified configuration constants, enhanced logging, and Node-RED best practices.
+ * Uses date-fns/date-fns-tz for timezone-aware date formatting.
  */
 
 // --- Standard Date Formatting Setup ---
@@ -13,7 +12,7 @@ const TIME_ZONE = 'America/Chicago';
 
 // --- Error Handling for Missing Libraries ---
 if (!dateFnsTz?.formatInTimeZone) {
-    node.error('[notify_pushover] date-fns-tz not available in global context', msg);
+    node.error('date-fns-tz not available in global context', msg);
     return null;
 }
 
@@ -25,7 +24,7 @@ const pushoverConfig = (() => ({
 
 // Validate configuration early
 if (!pushoverConfig.token || !pushoverConfig.user) {
-    node.error("[notify_pushover] Missing Pushover configuration - check global context", msg);
+    node.error("Missing Pushover configuration - check global context", msg);
     return null;
 }
 
@@ -47,7 +46,7 @@ function formatDate(dateInput, timeZone = TIME_ZONE) {
         const formatted = formatInTimeZone(date, timeZone, "EEEE, MMMM d, yyyy 'at' hh:mm:ss a zzz");
         return formatted;
     } catch (err) {
-        node.warn(`[notify_pushover] Date formatting failed: ${err.message}`);
+        node.warn(`Date formatting failed: ${err.message}`);
         // Fallback to ISO string
         return new Date(dateInput).toISOString();
     }
@@ -69,18 +68,6 @@ function escapeHtml(str) {
 }
 
 /**
- * Log debug messages when debugging is enabled
- * @param {string} level - Log level
- * @param {string} message - Message to log
- */
-function logMessage(level, message) {
-    const debugging = context.get('debugging') ?? true;
-    if (debugging) {
-        node.debug(`[${level}] ${message}`);
-    }
-}
-
-/**
  * Check rate limiting to prevent spam
  * @returns {boolean} Whether message should be sent
  */
@@ -90,9 +77,10 @@ function shouldSend() {
     const rateLimitMs = 15000; // 15 seconds
     
     if (now - last < rateLimitMs) {
-        logMessage("WARN", "[notify_pushover] Rate limit hit. Skipping message.");
+        node.warn("Rate limiting: Skipping notification - too frequent");
         return false;
     }
+    
     context.set("lastPushoverTime", now);
     return true;
 }
@@ -101,7 +89,7 @@ function shouldSend() {
 try {
     // Validate message structure
     if (!msg || typeof msg !== 'object') {
-        node.error("[notify_pushover] Invalid message object", msg);
+        node.error("Invalid message object", msg);
         return null;
     }
     // Extract payload data with safe destructuring
@@ -127,25 +115,26 @@ try {
     // Parse and validate timestamp
     let tsDate = new Date(rawTs);
     if (isNaN(tsDate.getTime())) {
-        node.warn("[notify_pushover] Invalid timestamp provided, using current time.");
+        node.warn("Invalid timestamp received, using current time");
         tsDate = new Date();
     }
     
     const formattedTime = formatDate(tsDate);
     const pushoverTs = Math.floor(tsDate.getTime() / 1000);
 
-    // Configuration for notifications
-    const notificationConfig = {
-        emergencyPriority: 2,
-        normalPriority: 0,
-        retry: 30,
-        expire: 3600,
-        sound: "persistent"
-    };
-    const { emergencyPriority, normalPriority, retry, expire, sound } = notificationConfig;
+    // Configuration constants (simplified as per Node-RED best practices)
+    const EMERGENCY_PRIORITY = 2;
+    const NORMAL_PRIORITY = 0;
+    const RETRY_SECONDS = 30;
+    const EXPIRE_SECONDS = 3600;
+    const NORMAL_SOUND = "classical";
+    const EMERGENCY_SOUND = "persistent";
 
     // Determine message severity
     const severity = (title + messageText).toLowerCase().includes("error") ? "critical" : "normal";
+    
+    // Set sound based on severity
+    const sound = severity === "critical" ? EMERGENCY_SOUND : NORMAL_SOUND;
 
     // Build HTML message parts
     const htmlParts = [];
@@ -172,26 +161,25 @@ try {
         message: htmlFormattedMessage,
         html: 1,
         sound,
-        priority: severity === "critical" ? emergencyPriority : normalPriority,
+        priority: severity === "critical" ? EMERGENCY_PRIORITY : NORMAL_PRIORITY,
         timestamp: pushoverTs
     };
     
     // Add retry/expire for emergency priority
-    if (payload.priority === emergencyPriority) {
-        payload.retry = retry;
-        payload.expire = expire;
+    if (payload.priority === EMERGENCY_PRIORITY) {
+        payload.retry = RETRY_SECONDS;
+        payload.expire = EXPIRE_SECONDS;
     }
 
     // Update message payload and return
-    // Note: Following Node-RED best practice of modifying the existing msg object
     msg.payload = payload;
     
-    logMessage("INFO", "[notify_pushover] Pushover payload created successfully");
+    node.log(`Pushover notification created for user: ${userName}`);
     
     return msg;
 
 } catch (err) {
-    // Follow Node-RED error handling best practice - pass msg as second argument
-    node.error("[notify_pushover] Exception in builder: " + err.message, msg);
+    // Follow Node-RED error handling best practice
+    node.error(`Pushover notification builder failed: ${err.message}`, msg);
     return null;
 }

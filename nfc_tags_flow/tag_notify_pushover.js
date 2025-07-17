@@ -1,9 +1,13 @@
 /**
- * Node-RED Function: Pushover Notification Builder (Refactored v3.3)
- * Version: 2025-07-16
+ * Node-RED Function: Pushover Notification Builder (Refactored v3.4)
+ * Version: 2025-07-17
  * Description: Builds a Pushover payload for tag-scan notifications with improved error handling,
  * simplified configuration constants, enhanced logging, and Node-RED best practices.
- * Uses date-fns/date-fns-tz for timezone-aware date formatting.
+ * Uses date-fns/date-fns-tz modules for timezone-aware date formatting.
+ * 
+ * Required Modules (add in Setup tab):
+ * - date-fns-tz (version 2.0.0+)
+ * - axios (for image downloading)
  */
 
 // --- Standard Date Formatting Setup ---
@@ -12,18 +16,13 @@ const TIME_ZONE = 'America/Chicago';
 
 // --- Error Handling for Missing Libraries ---
 if (!dateFnsTz?.formatInTimeZone) {
-    node.error('date-fns-tz not available in global context', msg);
+    node.error('date-fns-tz not available as module - add to Setup tab', msg);
     return null;
 }
 
-// --- Get axios and FormData for image downloading ---
-const axios = global.get('axios');
-const FormData = global.get('FormData');
+// --- Module Availability Checks ---
 if (!axios) {
-    node.warn('axios not available in global context - image attachments disabled');
-}
-if (!FormData && axios) {
-    node.warn('FormData not available in global context - will use Base64 encoding for attachments');
+    node.warn('axios not available as module - image attachments disabled. Add axios to Setup tab.');
 }
 
 // --- Get Pushover Configuration ---
@@ -101,7 +100,8 @@ function shouldSend() {
  * @returns {Promise<Buffer|null>} Image buffer or null if failed
  */
 async function downloadImage(imageUrl) {
-    if (!axios || !imageUrl) {
+    // Check if axios module is available
+    if (typeof axios === 'undefined' || !imageUrl) {
         return null;
     }
     
@@ -233,41 +233,15 @@ async function downloadImage(imageUrl) {
             basePayload.expire = EXPIRE_SECONDS;
         }
 
-        // Handle image attachment based on available libraries
+        // Handle image attachment using Base64 encoding
         if (imageBuffer) {
-            if (FormData) {
-                // Use multipart/form-data (preferred method)
-                const formData = new FormData();
-                
-                // Add all basic parameters to FormData
-                Object.keys(basePayload).forEach(key => {
-                    formData.append(key, basePayload[key]);
-                });
-                
-                // Add image attachment with proper headers
-                formData.append('attachment', imageBuffer, {
-                    filename: 'scan_image.jpg',
-                    contentType: 'image/jpeg'
-                });
-                
-                msg.payload = formData;
-                msg.headers = {
-                    'Content-Type': `multipart/form-data; boundary=${formData.getBoundary()}`
-                };
-                
-                node.log(`Image attachment added via multipart/form-data (${imageBuffer.length} bytes)`);
-                
-            } else {
-                // Fallback to Base64 encoding
-                basePayload.attachment_base64 = imageBuffer.toString('base64');
-                msg.payload = basePayload;
-                
-                node.log(`Image attachment added via Base64 encoding (${imageBuffer.length} bytes)`);
-            }
-        } else {
-            // No image attachment
-            msg.payload = basePayload;
+            // Use Base64 encoding for image attachment
+            basePayload.attachment_base64 = imageBuffer.toString('base64');
+            node.log(`Image attachment added via Base64 encoding (${imageBuffer.length} bytes)`);
         }
+
+        // Set final payload
+        msg.payload = basePayload;
         
         node.log(`Pushover notification created for user: ${userName}${imageBuffer ? ' with image attachment' : ''}`);
         

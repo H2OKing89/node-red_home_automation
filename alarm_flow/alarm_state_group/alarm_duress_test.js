@@ -1,14 +1,47 @@
 /****************************************************
  * Script Name: Duress Alarm Test Message Generator
  * Author: Quentin King
- * Version: 1.6.10
+ * Version: 1.6.11
  ****************************************************/
 
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.6.10';
+const SCRIPT_VERSION = '1.6.11';
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 const { formatInTimeZone } = dateFnsTz;
 const TIME_ZONE = 'America/Chicago';
+
+// Standard format strings per documentation
+const FORMATS = {
+    push: "MMMM do, yyyy h:mm a zzz",
+    tts: "MMMM do, yyyy 'at' h:mm a zzz",
+    iso: "yyyy-MM-dd HH:mm:ss"
+};
+
+// Error handling for missing libraries per documentation standards
+if (!dateFnsTz?.formatInTimeZone) {
+    node.error('[alarm_duress_test] date-fns-tz not available in global context');
+    return null;
+}
+
+// Standard function per documentation
+function getFormattedTimes(date = new Date()) {
+    if (!dateFnsTz?.formatInTimeZone) {
+        node.warn('[alarm_duress_test] date-fns-tz not available. Using fallback.');
+        const fallback = date.toISOString();
+        return { formattedTimePush: fallback, formattedTimeTTS: fallback };
+    }
+    
+    try {
+        return {
+            formattedTimePush: formatInTimeZone(date, TIME_ZONE, FORMATS.push),
+            formattedTimeTTS: formatInTimeZone(date, TIME_ZONE, FORMATS.tts)
+        };
+    } catch (error) {
+        node.error(`[alarm_duress_test] Error formatting date: ${error.message}`);
+        const fallback = date.toISOString();
+        return { formattedTimePush: fallback, formattedTimeTTS: fallback };
+    }
+}
 
 function log(message, level = "info") {
     if (!LOGGING_ENABLED) return;
@@ -59,10 +92,11 @@ function buildDiscordEmbed(obj, ts, testMsgDiscord, now) {
 }
 
 return (async () => {
+    const now = new Date();
+    const { formattedTimePush, formattedTimeTTS } = getFormattedTimes(now);
     try {
         log('[Debug] Async function start');
-        const now = new Date();
-        const ts = formatInTimeZone(now, TIME_ZONE, "MM-dd-yyyy HH:mm:ss zzz");
+        const ts = formattedTimePush;
         log(`[Debug] Timestamp=${ts}`);
 
 
@@ -118,7 +152,7 @@ return (async () => {
             topic: '[TEST] DURESS Alarm System Check',
             footer_text: `Test Alert System - ${ts}`,
             version: SCRIPT_VERSION,
-            generated_at: new Date().toISOString(),
+            generated_at: now.toISOString(),
             execution_id: executionId,
             alert_type: 'DURESS_TEST',
             priority: 'INFO'
@@ -126,6 +160,7 @@ return (async () => {
         log('[Debug] payload assigned');
         log('[Debug] Async success, returning msg');
         // Output 1: main test alert, Output 2: array of Discord outputs (or null)
+        node.done();
         return [msg, discordOutputs.length > 0 ? discordOutputs : null];
     } catch (error) {
         log(`[ERROR] Failed to generate duress test alert: ${error.message}`, 'error');
@@ -137,7 +172,7 @@ return (async () => {
                 topic: 'SYSTEM ERROR',
                 error: error.message,
                 execution_id: executionId,
-                generated_at: new Date().toISOString(),
+                generated_at: now.toISOString(),
                 alert_type: 'ERROR',
                 priority: 'HIGH'
             }

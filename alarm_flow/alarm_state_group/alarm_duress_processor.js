@@ -1,18 +1,51 @@
 /****************************************************
  * Script Name: Duress Alarm Code Alert Generator
  * Author: Quentin King
- * Version: 1.6.10
+ * Version: 1.6.11
  ****************************************************/
 
 // Toggle all logging on or off
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.6.10';
+const SCRIPT_VERSION = '1.6.11';
 // Unique ID per execution for traceability
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 
 // Import date-fns-tz for robust time zone and DST handling
-const { formatInTimeZone } = dateFnsTz;
 const TIME_ZONE = 'America/Chicago';
+
+// Standard format strings per documentation
+const FORMATS = {
+    push: "MMMM do, yyyy h:mm a zzz",
+    tts: "MMMM do, yyyy 'at' h:mm a zzz",
+    iso: "yyyy-MM-dd HH:mm:ss"
+};
+
+// Error handling for missing libraries per documentation standards
+if (!dateFnsTz?.formatInTimeZone) {
+    node.error('[alarm_duress_processor] date-fns-tz not available in global context');
+    return null;
+}
+const { formatInTimeZone } = dateFnsTz;
+
+// Standard function per documentation
+function getFormattedTimes(date = new Date()) {
+    if (!dateFnsTz?.formatInTimeZone) {
+        node.warn('[alarm_duress_processor] date-fns-tz not available. Using fallback.');
+        const fallback = date.toISOString();
+        return { formattedTimePush: fallback, formattedTimeTTS: fallback };
+    }
+    
+    try {
+        return {
+            formattedTimePush: formatInTimeZone(date, TIME_ZONE, FORMATS.push),
+            formattedTimeTTS: formatInTimeZone(date, TIME_ZONE, FORMATS.tts)
+        };
+    } catch (error) {
+        node.error(`[alarm_duress_processor] Error formatting date: ${error.message}`);
+        const fallback = date.toISOString();
+        return { formattedTimePush: fallback, formattedTimeTTS: fallback };
+    }
+}
 
 // Simple logging: enable/disable only
 function log(message, level = "info") {
@@ -68,12 +101,12 @@ function buildDiscordEmbed(obj, ts, duressMsgDiscord, now) {
 
 // Main async IIFE to build and return the alert message
 return (async () => {
+    const now = new Date();
+    const { formattedTimePush, formattedTimeTTS } = getFormattedTimes(now);
     try {
         log('[Debug] Async function start');
-        const now = new Date();
-        // Use date-fns-tz for time zone and DST-aware formatting
-        // Use xxx for offset, and hardcode 'America/Chicago' for abbreviation if needed
-        const ts = formatInTimeZone(now, TIME_ZONE, "MM-dd-yyyy HH:mm:ss zzz");
+        // Use standard format for timestamp
+        const ts = formattedTimePush;
         log(`[Debug] Timestamp=${ts}`);
 
         // Retrieve duress message from environment
@@ -128,7 +161,7 @@ return (async () => {
             topic: 'EMERGENCY: Alarm System Alert',
             footer_text: `Alert System - ${ts}`,
             version: SCRIPT_VERSION,
-            generated_at: new Date().toISOString(),
+            generated_at: now.toISOString(),
             execution_id: executionId,
             alert_type: 'DURESS',
             priority: 'CRITICAL'
@@ -136,6 +169,7 @@ return (async () => {
         log('[Debug] payload assigned');
         log('[Debug] Async success, returning msg');
         // Output 1: main alert, Output 2: array of Discord outputs (or null)
+        node.done();
         return [msg, discordOutputs.length > 0 ? discordOutputs : null];
     } catch (error) {
         log(`[ERROR] Failed to generate duress alert: ${error.message}`, 'error');
@@ -147,7 +181,7 @@ return (async () => {
                 topic: 'SYSTEM ERROR',
                 error: error.message,
                 execution_id: executionId,
-                generated_at: new Date().toISOString(),
+                generated_at: now.toISOString(),
                 alert_type: 'ERROR',
                 priority: 'HIGH'
             }

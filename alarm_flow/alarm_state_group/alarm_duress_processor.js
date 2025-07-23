@@ -1,12 +1,12 @@
 /****************************************************
  * Script Name: Duress Alarm Code Alert Generator
  * Author: Quentin King
- * Version: 1.6.0
+ * Version: 1.6.10
  ****************************************************/
 
 // Toggle all logging on or off
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.6.0';
+const SCRIPT_VERSION = '1.6.10';
 // Unique ID per execution for traceability
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 
@@ -43,10 +43,10 @@ function buildDuressMessage(obj, ts) {
  * @param {Object} obj - Duress message object.
  * @param {string} ts - Timestamp string.
  * @param {string} duressMsgDiscord - The formatted Discord message.
+ * @param {Date} now - The timestamp to use for all outputs.
  * @returns {Object}
  */
-function buildDiscordEmbed(obj, ts, duressMsgDiscord) {
-    const now = new Date();
+function buildDiscordEmbed(obj, ts, duressMsgDiscord, now) {
     const month = now.toLocaleString('default', { month: 'long' });
     const year = now.getFullYear();
     return {

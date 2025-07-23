@@ -1,11 +1,11 @@
 /****************************************************
  * Script Name: Duress Alarm Test Message Generator
  * Author: Quentin King
- * Version: 1.6.9
+ * Version: 1.6.10
  ****************************************************/
 
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.6.9';
+const SCRIPT_VERSION = '1.6.10';
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 const { formatInTimeZone } = dateFnsTz;
 const TIME_ZONE = 'America/Chicago';
@@ -128,7 +128,7 @@ return (async () => {
         // Output 1: main test alert, Output 2: array of Discord outputs (or null)
         return [msg, discordOutputs.length > 0 ? discordOutputs : null];
     } catch (error) {
-        log(`Failed to generate duress test alert: ${error.message}`, 'error');
+        log(`[ERROR] Failed to generate duress test alert: ${error.message}`, 'error');
         // Return a minimal error payload instead of null
         return [{
             payload: {

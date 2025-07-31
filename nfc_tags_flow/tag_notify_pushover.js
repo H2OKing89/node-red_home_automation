@@ -27,8 +27,8 @@ if (!axios) {
 
 // --- Get Pushover Configuration ---
 const pushoverConfig = (() => ({
-    token: global.get("pushoverTokens")?.adminToken,
-    user: global.get("pushoverUserKeys")?.quentinUserKey
+    token: env.get("PO_TOKEN_ADMIN"),
+    user: env.get("PO_USER_ADMIN")
 }))();
 
 // Validate configuration early

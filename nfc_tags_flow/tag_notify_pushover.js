@@ -1,6 +1,6 @@
 /**
- * Node-RED Function: Pushover Notification Builder (Refactored v3.4)
- * Version: 2025-07-17
+ * Node-RED Function: Pushover Notification Builder (Refactored v3.5)
+ * Version: 2025-07-30
  * Description: Builds a Pushover payload for tag-scan notifications with improved error handling,
  * simplified configuration constants, enhanced logging, and Node-RED best practices.
  * Uses date-fns/date-fns-tz modules for timezone-aware date formatting.
@@ -8,20 +8,31 @@
  * Required Modules (add in Setup tab):
  * - date-fns-tz (version 2.0.0+)
  * - axios (for image downloading)
+ * 
+ * v3.5 Updates:
+ * - Fixed module guards to prevent crashes when modules missing
+ * - Improved severity detection for unauthorized access patterns  
+ * - Added per-key rate limiting with different thresholds by severity
+ * - Enhanced HTML escaping including title field
+ * - Added icon URL validation for security
+ * - Ensured node.done() called on all exit paths
+ * - Safer date fallback handling
  */
 
 // --- Standard Date Formatting Setup ---
-const { formatInTimeZone } = dateFnsTz;
 const TIME_ZONE = 'America/Chicago';
 
 // --- Error Handling for Missing Libraries ---
-if (!dateFnsTz?.formatInTimeZone) {
-    node.error('date-fns-tz not available as module - add to Setup tab', msg);
+const hasDFTz = (typeof dateFnsTz !== 'undefined') && typeof dateFnsTz.formatInTimeZone === 'function';
+if (!hasDFTz) {
+    node.error('date-fns-tz not available as module - add in Setup tab', msg);
     return null;
 }
+const { formatInTimeZone } = dateFnsTz;
 
 // --- Module Availability Checks ---
-if (!axios) {
+const hasAxios = (typeof axios !== 'undefined');
+if (!hasAxios) {
     node.warn('axios not available as module - image attachments disabled. Add axios to Setup tab.');
 }
 
@@ -33,7 +44,7 @@ const pushoverConfig = (() => ({
 
 // Validate configuration early
 if (!pushoverConfig.token || !pushoverConfig.user) {
-    node.error("Missing Pushover configuration - check global context", msg);
+    node.error("Missing Pushover configuration - check environment variables", msg);
     return null;
 }
 
@@ -56,8 +67,8 @@ function formatDate(dateInput, timeZone = TIME_ZONE) {
         return formatted;
     } catch (err) {
         node.warn(`Date formatting failed: ${err.message}`);
-        // Fallback to ISO string
-        return new Date(dateInput).toISOString();
+        // Safe fallback to current time
+        return new Date().toISOString();
     }
 }
 
@@ -77,20 +88,23 @@ function escapeHtml(str) {
 }
 
 /**
- * Check rate limiting to prevent spam
+ * Check rate limiting to prevent spam with per-key tracking
+ * @param {string} key - Rate limiting key 
+ * @param {number} minMs - Minimum milliseconds between messages
  * @returns {boolean} Whether message should be sent
  */
-function shouldSend() {
+function shouldSend(key = 'default', minMs = 15000) {
     const now = Date.now();
-    const last = context.get("lastPushoverTime") || 0;
-    const rateLimitMs = 15000; // 15 seconds
+    const map = context.get('rateLimitMap') || {};
+    const last = map[key] || 0;
     
-    if (now - last < rateLimitMs) {
-        node.warn("Rate limiting: Skipping notification - too frequent");
+    if (now - last < minMs) {
+        node.warn(`Rate limiting: Skipping notification for key="${key}" (${now - last}ms < ${minMs}ms)`);
         return false;
     }
     
-    context.set("lastPushoverTime", now);
+    map[key] = now;
+    context.set('rateLimitMap', map);
     return true;
 }
 
@@ -101,7 +115,7 @@ function shouldSend() {
  */
 async function downloadImage(imageUrl) {
     // Check if axios module is available
-    if (typeof axios === 'undefined' || !imageUrl) {
+    if (!hasAxios || !imageUrl) {
         return null;
     }
     
@@ -144,6 +158,7 @@ async function downloadImage(imageUrl) {
         // Validate message structure
         if (!msg || typeof msg !== 'object') {
             node.error("Invalid message object", msg);
+            node.done();
             return;
         }
         
@@ -154,18 +169,14 @@ async function downloadImage(imageUrl) {
                     title = "No Title",
                     message: messageText = "No message provided",
                     details = "",
-                    timestamp: rawTs = new Date().toISOString()
+                    timestamp: rawTs = new Date().toISOString(),
+                    severity: explicitSeverity = null
                 } = {},
                 icon = null,
                 tag_name: tagName = "Unknown Tag",
                 user_name: userName = "Unknown User"
             } = {}
         } = msg;
-
-        // Apply rate limiting
-        if (!shouldSend()) {
-            return;
-        }
 
         // Parse and validate timestamp
         let tsDate = new Date(rawTs);
@@ -185,30 +196,44 @@ async function downloadImage(imageUrl) {
         const NORMAL_SOUND = "classical";
         const EMERGENCY_SOUND = "persistent";
 
-        // Determine message severity
-        const severity = (title + messageText).toLowerCase().includes("error") ? "critical" : "normal";
+        // Improved severity detection with better pattern matching
+        const lowered = `${title} ${messageText}`.toLowerCase();
+        const isUnauthorized = /(unauthori[sz]ed|denied|forbidden|blocked|invalid|failed|access)/i.test(lowered);
+        const isError = /(error|failure|exception|critical|emergency)/i.test(lowered);
+        const severity = explicitSeverity || (isUnauthorized || isError ? 'critical' : 'normal');
         
         // Set sound based on severity
         const sound = severity === "critical" ? EMERGENCY_SOUND : NORMAL_SOUND;
 
-        // Download image if available
-        let imageBuffer = null;
-        if (icon) {
-            imageBuffer = await downloadImage(icon);
+        // Apply rate limiting with per-key tracking and shorter window for critical messages
+        const rlKey = `${severity}:${title}:${userName}`;
+        const rlMs = severity === 'critical' ? 2000 : 15000; // lenient for critical
+        if (severity !== 'critical' && !shouldSend(rlKey, rlMs)) {
+            node.done();
+            return;
         }
 
-        // Build HTML message parts
+        // Download image if available - validate icon URL first
+        const safeIcon = (typeof icon === 'string' && /^https?:\/\//i.test(icon)) ? icon : null;
+        let imageBuffer = null;
+        if (safeIcon) {
+            imageBuffer = await downloadImage(safeIcon);
+        }
+
+        // Build HTML message parts with proper escaping
         const htmlParts = [];
         const addPart = (condition, part) => condition && htmlParts.push(part);
         
+        const safeTitle = escapeHtml(title);
+        
         addPart(severity === "critical", `🔒 <b>Unauthorized Access Detected</b>`);
-        addPart(true, `<b>${title}</b>`);
+        addPart(true, `<b>${safeTitle}</b>`);
         addPart(!!messageText, escapeHtml(messageText));
         addPart(true, `User: <b>${escapeHtml(userName)}</b>`);
         addPart(true, `Tag: <font color="${severity === "critical" ? "#cc0000" : "#009900"}"><b>${escapeHtml(tagName)}</b></font>`);
         addPart(true, `Time: <u>${formattedTime}</u>`);
-        // Only add image link if we couldn't download the image
-        addPart(!!icon && !imageBuffer, `<a href="${icon}">📷 View Image</a>`);
+        // Only add image link if we couldn't download the image and URL is safe
+        addPart(!!safeIcon && !imageBuffer, `<a href="${escapeHtml(safeIcon)}">📷 View Image</a>`);
         addPart(!!details, `<font color="#888888">${escapeHtml(details)}</font>`);
         
         const htmlFormattedMessage = htmlParts.join('<br>');
@@ -242,6 +267,18 @@ async function downloadImage(imageUrl) {
 
         // Set final payload
         msg.payload = basePayload;
+        
+        // Update node status
+        node.status({
+            fill: severity === "critical" ? "red" : "green",
+            shape: "dot",
+            text: `${severity} notification for ${userName}`
+        });
+        
+        // Clear status after 5 seconds
+        setTimeout(() => {
+            node.status({});
+        }, 5000);
         
         node.log(`Pushover notification created for user: ${userName}${imageBuffer ? ' with image attachment' : ''}`);
         

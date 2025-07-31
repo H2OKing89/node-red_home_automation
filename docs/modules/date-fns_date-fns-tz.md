@@ -7,7 +7,7 @@ This document explains how to use the `date-fns` and `date-fns-tz` libraries for
 ## What are `date-fns` and `date-fns-tz`?
 
 - **date-fns**: A modern JavaScript date utility library for parsing, formatting, and manipulating dates.
-- **date-fns-tz**: An extension for `date-fns` that adds time zone support, including formatting dates in specific time zones and handling daylight saving time.
+- **date-fns-tz**: An extension for `date-fns` that adds time zone support using the Intl API, including formatting dates in specific time zones and handling daylight saving time. By using the browser API, no time zone data needs to be included in code bundles.
 
 ---
 
@@ -23,12 +23,14 @@ This document explains how to use the `date-fns` and `date-fns-tz` libraries for
 
 ### 1. Module Setup in Node-RED Function Nodes
 
-**Always add these modules in the function node's Setup tab:**
+**Prerequisites:** Enable `functionExternalModules: true` in Node-RED `settings.js`.
 
-- `date-fns` (version 3.6.0 or later)
-- `date-fns-tz` (version 2.0.0 or later)
+**In the Function node's Setup tab, add these modules:**
 
-**DO NOT use `require()`** - modules are available as global variables `dateFns` and `dateFnsTz`.
+- `date-fns` (v3.6.0+), variable name: `dateFns`
+- `date-fns-tz` (v2.0.0+), variable name: `dateFnsTz`
+
+**DO NOT use `require()`** - after adding modules in Setup, reference them directly by the variable names you configured (e.g., `dateFnsTz`). No import statements needed.
 
 ### 2. Standard Implementation Pattern
 
@@ -55,17 +57,22 @@ const formattedTimeTTS = formatInTimeZone(now, TIME_ZONE, "MMMM do, yyyy 'at' h:
 // Standard timezone constant
 const TIME_ZONE = 'America/Chicago';
 
-// Standard format strings
+// Standard format strings - all tokens used are supported (standard date-fns + date-fns-tz time zone tokens)
 const PUSH_FORMAT = "MMMM do, yyyy h:mm a zzz";      // "June 27th, 2025 3:00 PM CDT"
 const TTS_FORMAT = "MMMM do, yyyy 'at' h:mm a zzz";  // "June 27th, 2025 at 3:00 PM CDT"
 const ISO_FORMAT = "yyyy-MM-dd HH:mm:ss";            // "2025-06-27 15:00:00"
+
+// Alternative time zone format options:
+const LONG_TZ_FORMAT = "MMMM do, yyyy h:mm a zzzz";  // "June 27th, 2025 3:00 PM Central Daylight Time"
+const OFFSET_FORMAT = "MMMM do, yyyy h:mm a XXX";    // "June 27th, 2025 3:00 PM -05:00"
+const GMT_FORMAT = "MMMM do, yyyy h:mm a OOOO";      // "June 27th, 2025 3:00 PM GMT-05:00"
 ```
 
 ---
 
 ## How to Use in Node-RED Function Nodes
 
-> **Note:** When you add `date-fns` and `date-fns-tz` as modules in a Node-RED function node's Setup tab, you do **not** need to use `require`. The modules are automatically available as global variables—use `dateFns` and `dateFnsTz` directly in your code.
+> **Note:** When you add `date-fns` and `date-fns-tz` as modules in a Node-RED function node's Setup tab, you choose the variable names (e.g., `dateFnsTz`). After adding modules in Setup, reference them directly by those variable names—no `require()` or import statements needed.
 
 ---
 
@@ -154,13 +161,19 @@ function formatDurationAndTime(durationSeconds) {
 ### Pattern 1: Push Notification Messages
 
 ```javascript
-// Standard push notification message format
+// Standard push notification message format for Home Assistant Android App
 const messageHtml = `\u200B<b><span style="color: #1565c0">Event occurred</span></b> \u200B<span style="color: #e65100">${details}</span></b><br><span style="color: #888">${formattedTimePush}</span>`;
 const titleHtml = '\u200B<b><span style="color: #1565c0">Event Title</span></b>';
 
-// For iOS (plain text)
-const message = `Event occurred: ${details}\n${formattedTimePush}`;
-const title = 'Event Title';
+// For iOS/plain text platforms
+const messageText = `Event occurred: ${details}\n${formattedTimePush}`;
+const titleText = 'Event Title';
+
+// Optional: Use emojis for color emphasis (🔴🟡🟢 for severity levels)
+const urgentMessageHtml = 
+    `🔴 <b>URGENT: Event occurred</b><br>` +
+    `<b>${details}</b><br>` +
+    `${formattedTimePush}`;
 ```
 
 ### Pattern 2: TTS Message Construction
@@ -282,12 +295,41 @@ const formatted = formatInTimeZone(now, timeZone, "MMMM do, yyyy h:mm a zzz");
 
 ## Common Format Strings
 
+### Time Zone Tokens (All Supported by date-fns-tz)
+
+- `zzz` → CDT, EST, PST (short specific non-location format)
+- `zzzz` → Central Daylight Time, Eastern Standard Time (long specific non-location format)
+- `XXX` → -05:00, +02:00 (ISO offset format)
+- `OOOO` → GMT-05:00, GMT+02:00 (GMT offset format)
+
+### Common Date/Time Patterns
+
 - `MMMM do, yyyy h:mm a zzz` → June 27th, 2025 3:00 PM CDT
+- `MMMM do, yyyy 'at' h:mm a zzz` → June 27th, 2025 at 3:00 PM CDT
 - `yyyy-MM-dd HH:mm:ss` → 2025-06-27 15:00:00
 - `h:mm a` → 3:00 PM
 - `H` → 15 (24-hour format, single digit for getCurrentHour())
+- `EEEE, MMMM d, yyyy 'at' hh:mm:ss a zzz` → Friday, June 27, 2025 at 03:00:13 PM CDT
 
-See the [date-fns format documentation](https://date-fns.org/v3.6.0/docs/format) for more options.
+### Advanced Examples
+
+```javascript
+// Short time zone abbreviation
+formatInTimeZone(date, 'America/Chicago', "yyyy-MM-dd HH:mm:ss zzz")
+// Result: "2025-06-27 15:00:00 CDT"
+
+// Long time zone name  
+formatInTimeZone(date, 'America/Chicago', "MMMM do, yyyy 'at' h:mm a zzzz")
+// Result: "June 27th, 2025 at 3:00 PM Central Daylight Time"
+
+// ISO offset format
+formatInTimeZone(date, 'America/Chicago', "yyyy-MM-dd HH:mm:ss XXX")
+// Result: "2025-06-27 15:00:00 -05:00"
+
+// GMT offset format
+formatInTimeZone(date, 'America/Chicago', "yyyy-MM-dd HH:mm:ss OOOO")
+// Result: "2025-06-27 15:00:00 GMT-05:00"
+```
 
 ---
 
@@ -361,14 +403,18 @@ function getFormattedTimes(date) {
 - Use `'at'` in TTS strings for natural speech flow
 - Test with different times including DST transitions
 - Include function name in error/warning messages for debugging
+- Test around DST transitions for your timezone:
+  - Spring forward (e.g., 2025-03-09 01:59 → 03:01 CDT)
+  - Fall back (e.g., 2025-11-02 01:59 → 01:01 CST)
+- Use Pushover-compatible HTML only: `<b>`, `<i>`, `<u>`, `<a href>`, `<br>` (no CSS styles)
 
 ### DON'Ts ❌
 
 - Don't use `require()` for date-fns modules in Node-RED
-- Don't hardcode timezone abbreviations (CST/CDT) - let date-fns handle it
 - Don't assume the library is always available - include fallbacks
 - Don't mix local time with timezone-aware formatting
 - Don't forget to handle edge cases (invalid dates, network issues)
+- Don't confuse date-fns-tz with plain date-fns - only date-fns-tz supports `zzz` tokens properly
 
 ### Standard Naming Conventions
 
@@ -404,9 +450,70 @@ function testDateFormatting() {
 ## References
 
 - [date-fns documentation](https://date-fns.org/)
-- [date-fns-tz documentation](https://github.com/date-fns/date-fns-tz)
+- [date-fns-tz documentation](https://github.com/date-fns/tz)
+- [date-fns-tz npm package](https://www.npmjs.com/package/date-fns-tz)
 - [IANA time zone database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
 - [Node-RED Function Node Documentation](https://nodered.org/docs/user-guide/writing-functions)
+
+---
+
+## Time Zone Token Support in date-fns-tz
+
+**Important Note**: `date-fns-tz` fully supports time zone tokens using the Intl API. This is different from plain `date-fns` which does not support these tokens properly.
+
+### Supported Time Zone Tokens
+
+| Token | Description | Example Output |
+|-------|-------------|----------------|
+| `zzz` | Short specific non-location format | CDT, EST, PST |
+| `zzzz` | Long specific non-location format | Central Daylight Time |
+| `XXX` | ISO offset format | -05:00, +02:00 |
+| `OOOO` | GMT offset format | GMT-05:00 |
+
+### Examples
+
+```javascript
+const date = new Date('2025-06-27T15:00:00Z');
+
+// These all work correctly with date-fns-tz:
+formatInTimeZone(date, 'America/Chicago', "zzz")    // "CDT"
+formatInTimeZone(date, 'America/Chicago', "zzzz")   // "Central Daylight Time"  
+formatInTimeZone(date, 'America/Chicago', "XXX")    // "-05:00"
+formatInTimeZone(date, 'America/Chicago', "OOOO")   // "GMT-05:00"
+
+// Full examples:
+formatInTimeZone(date, 'America/Chicago', "MMMM do, yyyy h:mm a zzz")
+// "June 27th, 2025 10:00 AM CDT"
+
+formatInTimeZone(date, 'America/Chicago', "EEEE, MMMM d, yyyy 'at' hh:mm:ss a zzzz")
+// "Friday, June 27, 2025 at 10:00:00 AM Central Daylight Time"
+```
+
+### Why This Works
+
+- **date-fns-tz** extends date-fns with proper time zone support using the Intl API
+- **No time zone data** needs to be included in code bundles
+- **Modern browsers and Node.js** all support the necessary Intl features
+- The time zone name generation works best when a **locale is also provided**
+
+```javascript
+// Optional: For cleaner time zone names with zzzz token
+// Add date-fns locale in Setup tab as variable dateFnsLocaleEnUS
+formatInTimeZone(date, 'Europe/Paris', 'yyyy-MM-dd HH:mm:ss zzzz', { locale: dateFnsLocaleEnUS })
+// "2025-06-27 17:00:00 Central European Summer Time"
+
+// Without locale (still works, but may vary by system)
+formatInTimeZone(date, 'Europe/Paris', 'yyyy-MM-dd HH:mm:ss zzz')
+// "2025-06-27 17:00:00 CEST"
+```
+
+### Common Misconceptions
+
+❌ **Wrong**: "zzz tokens don't work in date-fns"  
+✅ **Correct**: "zzz tokens work perfectly in **date-fns-tz** but not in plain date-fns"
+
+❌ **Wrong**: "You'll get literal 'zzz' in the output"  
+✅ **Correct**: "You'll get proper time zone abbreviations like 'CDT', 'EST', etc."
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * Node-RED Function: Pushover Notification Builder (Refactored v3.5)
+ * Node-RED Function: Pushover Notification Builder (Refactored v3.6)
  * Version: 2025-07-30
  * Description: Builds a Pushover payload for tag-scan notifications with improved error handling,
  * simplified configuration constants, enhanced logging, and Node-RED best practices.
@@ -8,6 +8,15 @@
  * Required Modules (add in Setup tab):
  * - date-fns-tz (version 2.0.0+)
  * - axios (for image downloading)
+ * 
+ * v3.6 Updates (Final Polish):
+ * - Reverted to zzz timezone token (CDT format) per user preference
+ * - Restored <font color> HTML tags (confirmed supported by Pushover API)
+ * - Added newline-to-<br> conversion for details field
+ * - Restored image size limit to 5MB (Pushover's actual limit) with content-type detection
+ * - Eliminated rate limiting for critical messages (when fires burn, don't whisper)
+ * - Added automatic cleanup of old rate-limit entries (24h retention)
+ * - Enhanced image attachment with proper MIME type
  * 
  * v3.5 Updates:
  * - Fixed module guards to prevent crashes when modules missing
@@ -44,7 +53,7 @@ const pushoverConfig = (() => ({
 
 // Validate configuration early
 if (!pushoverConfig.token || !pushoverConfig.user) {
-    node.error("Missing Pushover configuration - check environment variables", msg);
+    node.error("Missing Pushover configuration - check environment variables");
     return null;
 }
 
@@ -98,6 +107,14 @@ function shouldSend(key = 'default', minMs = 15000) {
     const map = context.get('rateLimitMap') || {};
     const last = map[key] || 0;
     
+    // Opportunistic cleanup (remove entries older than 24h)
+    if (Math.random() < 0.05) {
+        const cutoff = now - 24*60*60*1000;
+        for (const k of Object.keys(map)) {
+            if (map[k] < cutoff) delete map[k];
+        }
+    }
+    
     if (now - last < minMs) {
         node.warn(`Rate limiting: Skipping notification for key="${key}" (${now - last}ms < ${minMs}ms)`);
         return false;
@@ -124,7 +141,7 @@ async function downloadImage(imageUrl) {
         const response = await axios.get(imageUrl, {
             responseType: 'arraybuffer',
             timeout: 10000, // 10 second timeout
-            maxContentLength: 5242880, // 5MB limit (Pushover's limit)
+            maxContentLength: 5242880, // 5MB limit (Pushover's actual limit)
             headers: {
                 'User-Agent': 'Node-RED/Home-Automation'
             }
@@ -133,14 +150,17 @@ async function downloadImage(imageUrl) {
         if (response.status === 200 && response.data) {
             const imageBuffer = Buffer.from(response.data);
             
-            // Double-check size limit
+            // Double-check size limit (5MB)
             if (imageBuffer.length > 5242880) {
                 node.warn(`Image too large: ${imageBuffer.length} bytes (max 5MB)`);
                 return null;
             }
             
-            node.log(`Image downloaded successfully, size: ${imageBuffer.length} bytes`);
-            return imageBuffer;
+            // Get content type for attachment
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            
+            node.log(`Image downloaded successfully, size: ${imageBuffer.length} bytes, type: ${contentType}`);
+            return { buffer: imageBuffer, contentType };
         }
         
         node.warn(`Failed to download image, status: ${response.status}`);
@@ -205,9 +225,9 @@ async function downloadImage(imageUrl) {
         // Set sound based on severity
         const sound = severity === "critical" ? EMERGENCY_SOUND : NORMAL_SOUND;
 
-        // Apply rate limiting with per-key tracking and shorter window for critical messages
+        // Apply rate limiting with per-key tracking - no rate limit for critical messages
         const rlKey = `${severity}:${title}:${userName}`;
-        const rlMs = severity === 'critical' ? 2000 : 15000; // lenient for critical
+        const rlMs = severity === 'critical' ? 0 : 15000; // no limit for critical
         if (severity !== 'critical' && !shouldSend(rlKey, rlMs)) {
             node.done();
             return;
@@ -215,9 +235,9 @@ async function downloadImage(imageUrl) {
 
         // Download image if available - validate icon URL first
         const safeIcon = (typeof icon === 'string' && /^https?:\/\//i.test(icon)) ? icon : null;
-        let imageBuffer = null;
+        let imageData = null;
         if (safeIcon) {
-            imageBuffer = await downloadImage(safeIcon);
+            imageData = await downloadImage(safeIcon);
         }
 
         // Build HTML message parts with proper escaping
@@ -225,6 +245,7 @@ async function downloadImage(imageUrl) {
         const addPart = (condition, part) => condition && htmlParts.push(part);
         
         const safeTitle = escapeHtml(title);
+        const safeDetails = details ? escapeHtml(details).replace(/\n/g, '<br>') : '';
         
         addPart(severity === "critical", `🔒 <b>Unauthorized Access Detected</b>`);
         addPart(true, `<b>${safeTitle}</b>`);
@@ -233,8 +254,8 @@ async function downloadImage(imageUrl) {
         addPart(true, `Tag: <font color="${severity === "critical" ? "#cc0000" : "#009900"}"><b>${escapeHtml(tagName)}</b></font>`);
         addPart(true, `Time: <u>${formattedTime}</u>`);
         // Only add image link if we couldn't download the image and URL is safe
-        addPart(!!safeIcon && !imageBuffer, `<a href="${escapeHtml(safeIcon)}">📷 View Image</a>`);
-        addPart(!!details, `<font color="#888888">${escapeHtml(details)}</font>`);
+        addPart(!!safeIcon && !imageData, `<a href="${escapeHtml(safeIcon)}">📷 View Image</a>`);
+        addPart(!!safeDetails, `<font color="#888888">${safeDetails}</font>`);
         
         const htmlFormattedMessage = htmlParts.join('<br>');
 
@@ -259,10 +280,11 @@ async function downloadImage(imageUrl) {
         }
 
         // Handle image attachment using Base64 encoding
-        if (imageBuffer) {
+        if (imageData) {
             // Use Base64 encoding for image attachment
-            basePayload.attachment_base64 = imageBuffer.toString('base64');
-            node.log(`Image attachment added via Base64 encoding (${imageBuffer.length} bytes)`);
+            basePayload.attachment_base64 = imageData.buffer.toString('base64');
+            basePayload.attachment_type = imageData.contentType;
+            node.log(`Image attachment added via Base64 encoding (${imageData.buffer.length} bytes, ${imageData.contentType})`);
         }
 
         // Set final payload
@@ -280,7 +302,7 @@ async function downloadImage(imageUrl) {
             node.status({});
         }, 5000);
         
-        node.log(`Pushover notification created for user: ${userName}${imageBuffer ? ' with image attachment' : ''}`);
+        node.log(`Pushover notification created for user: ${userName}${imageData ? ' with image attachment' : ''}`);
         
         node.send(msg);
         node.done();

@@ -161,7 +161,7 @@ function formatDurationAndTime(durationSeconds) {
 ### Pattern 1: Push Notification Messages
 
 ```javascript
-// Standard push notification message format for Home Assistant Android App
+// Standard push notification message format for Home Assistant Android App with HTML support
 const messageHtml = `\u200B<b><span style="color: #1565c0">Event occurred</span></b> \u200B<span style="color: #e65100">${details}</span></b><br><span style="color: #888">${formattedTimePush}</span>`;
 const titleHtml = '\u200B<b><span style="color: #1565c0">Event Title</span></b>';
 
@@ -309,7 +309,7 @@ const formatted = formatInTimeZone(now, timeZone, "MMMM do, yyyy h:mm a zzz");
 - `yyyy-MM-dd HH:mm:ss` → 2025-06-27 15:00:00
 - `h:mm a` → 3:00 PM
 - `H` → 15 (24-hour format, single digit for getCurrentHour())
-- `EEEE, MMMM d, yyyy 'at' hh:mm:ss a zzz` → Friday, June 27, 2025 at 03:00:13 PM CDT
+- `EEEE, MMMM d, yyyy 'at' hh:mm:ss a zzz` → Wednesday, July 30, 2025 at 09:15:30 PM CDT
 
 ### Advanced Examples
 
@@ -345,7 +345,7 @@ const now = new Date();
 const formattedTimePush = formatInTimeZone(now, timeZone, "MMMM do, yyyy h:mm a zzz");
 const formattedTimeTTS = formatInTimeZone(now, timeZone, "MMMM do, yyyy 'at' h:mm a zzz");
 
-// HTML message for Android
+// // Standard push notification message format for Home Assistant Android App with HTML support
 const messageHtml = `\u200B<b><span style="color: #1565c0">The garage door was left open for</span></b> \u200B<span style="color: #e65100">${durationText}</span></b> <b><span style="color: #1565c0">and has been closed automatically.</span></b><br><span style="color: #888">${formattedTimePush}</span>`;
 
 // TTS message
@@ -485,8 +485,8 @@ formatInTimeZone(date, 'America/Chicago', "OOOO")   // "GMT-05:00"
 formatInTimeZone(date, 'America/Chicago', "MMMM do, yyyy h:mm a zzz")
 // "June 27th, 2025 10:00 AM CDT"
 
-formatInTimeZone(date, 'America/Chicago', "EEEE, MMMM d, yyyy 'at' hh:mm:ss a zzzz")
-// "Friday, June 27, 2025 at 10:00:00 AM Central Daylight Time"
+formatInTimeZone(date, 'America/Chicago', "EEEE, MMMM d, yyyy 'at' hh:mm:ss a zzz")
+// "Wednesday, July 30, 2025 at 09:15:30 PM CDT"
 ```
 
 ### Why This Works

@@ -5,7 +5,9 @@
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2024.x+-blue)
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
-Welcome to Quentin's Node-RED automation suite—a comprehensive, modular, and highly customized smart home system. This repository powers advanced alarm logic, garage automation, weather alerting, lighting, and rich notifications. It's built for flexibility, reliability, and deep Home Assistant integration.
+Welcome to Quentin's Node-RED automation suite—a comprehensive, modular, and highly customized smart home system.
+This repository powers advanced alarm logic, garage automation, weather alerting, lighting, and rich notifications.
+It's built for flexibility, reliability, and deep Home Assistant integration.
 
 <div align="center">
 
@@ -60,14 +62,16 @@ flowchart LR
 
 ## What's Inside?
 
-* **Alarm System:**  
-  Stateful logic with Home Assistant integration, duress handling, lock disarm triggers, and multi-channel notifications (push + TTS).
+  Stateful logic with Home Assistant integration, duress handling, lock disarm triggers, and multi-channel notifications
+  (push + TTS).
 
 * **Garage Automation:**  
-  Smart timers for auto-closing, motion-activated lighting with SunCalc integration, and comprehensive safety checks with per-path documentation.
+  Smart timers for auto-closing, motion-activated lighting with SunCalc integration, and comprehensive safety checks
+  with per-path documentation.
 
 * **Weather Alerts:**  
-  Severity + certainty scoring, TTL-based duplicate filtering, county-aware highlighting, scheduled quiet hours, and rich notification formatting.
+  Severity + certainty scoring, TTL-based duplicate filtering, county-aware highlighting, scheduled quiet hours,
+  and rich notification formatting.
 
 * **NFC Tag Processing:**  
   Tag-based alarm control, notification routing, and context-aware actions.

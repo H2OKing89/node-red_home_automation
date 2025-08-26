@@ -33,8 +33,11 @@ if (androidActions.length === 0 && iosActions.length === 0) {
     return null;
 }
 
+
 const alarmMessage = msg.alarm && msg.alarm.message ? `<b><span style="color: green">${msg.alarm.message}</span></b>` : '';
-const notificationMessage = push + (alarmMessage ? '\n\n' + alarmMessage : '');
+const notificationMessage = `\u200B<b><span style="color: blue">${push}</span></b>` + (alarmMessage ? '\n\n' + alarmMessage : '');
+
+
 
 // Remove HTML for iOS
 function stripHtml(html) {

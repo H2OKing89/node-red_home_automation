@@ -49,7 +49,7 @@ const outMsgs = actions.map(action => ({
                 ttl: 0,
                 priority: "high",
                 media_stream: "alarm_stream_max",
-                tts_text: 'Thank you for disabling the alarm, Now go in Peace and serve the Lord'
+                tts_text: tts
             }
         }
     }

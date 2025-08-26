@@ -1,6 +1,11 @@
+// ========================== DEPRECATED ================================= //
+// -------------------------- 08/25/2025 --------------------------------- //
+//
+// This script is now deprecated and replaced by environment variables
 // This script sets up global variables for a Node-RED flow to handle notifications and TTS messages for a security system.
 // It includes mappings for mobile notifications, TTS messages for alarm states, and a push notification
 // === Mobile Notification Mapping (Home Assistant entity_id to notify.*) ===
+//
 const notifyMapAndroid = {
     "person.alana": "notify.mobile_app_alana_s22u",
     "person.betty": "notify.mobile_app_betty_s24u",

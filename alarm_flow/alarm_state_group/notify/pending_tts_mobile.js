@@ -11,7 +11,6 @@ if (!msg.data) {
     return null;
 }
 
-// REVIEW: Consider caching global.get calls if this function becomes a performance hotspot
 if (typeof notifyMapAndroid !== 'object' || notifyMapAndroid === null) {
     node.error('notifyMapAndroid must be a non-null object');
     return null;

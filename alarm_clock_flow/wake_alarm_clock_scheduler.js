@@ -7,12 +7,25 @@
 
 // --- Date-fns-tz Integration ---
 const { formatInTimeZone } = dateFnsTz;
-const TIME_ZONE = 'America/Chicago'; // 🌍 Matches your cron timezone
+
+// --- Environment Configuration ---
+const alarmConfigRaw = env.get("ALARM_CLOCK") || {};
+const alarmConfig = alarmConfigRaw.alarm_clock || alarmConfigRaw; // Support both nested and direct structure
+const TIME_ZONE = alarmConfig.timezone || 'America/Chicago'; // 🌍 Fallback to default
+const SONOS_ENTITY_ID = alarmConfig.sonos?.entity_id || 'media_player.bedroom_sonos_amp';
+const DEFAULT_VOLUME = alarmConfig.sonos?.volume || 85;
 
 // --- Error Handling Check ---
 if (!dateFnsTz?.formatInTimeZone) {
     node.error('❌ date-fns-tz not available - alarm announcements may use server time');
     // Continue with fallback behavior
+}
+
+// --- Configuration Validation ---
+if (!alarmConfig.sonos?.entity_id) {
+    node.warn('⚠️ Using default Sonos entity ID - consider setting alarm_clock.sonos.entity_id in environment');
+} else {
+    node.log(`✅ Loaded Sonos entity: ${SONOS_ENTITY_ID}, Volume: ${DEFAULT_VOLUME}, Timezone: ${TIME_ZONE}`);
 }
 
 // --- Validate Incoming Message ---
@@ -60,16 +73,22 @@ function processAlarmTime(message) {
                 hour12: true,
                 timeZone: TIME_ZONE
             };
+            
+            const displayOptions = {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: TIME_ZONE,
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZoneName: 'short'
+            };
+            
             formattedTimes = {
                 tts: alarmTime.toLocaleTimeString('en-US', timeOptions),
-                display: alarmTime.toLocaleString('en-US', {
-                    ...timeOptions,
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    timeZoneName: 'short'
-                }),
+                display: alarmTime.toLocaleString('en-US', displayOptions),
                 iso: alarmTime.toISOString()
             };
         }
@@ -137,21 +156,24 @@ function createTTSMessages(timeData) {
 // 🔊 SONOS TTS PAYLOAD CREATION
 // ========================================
 
-function createSonosTTSPayload(ttsMessage, volume = 80) {
+function createSonosTTSPayload(ttsMessage, volume = null) {
+    // Use environment volume or provided volume or default fallback
+    const finalVolume = volume !== null ? volume : DEFAULT_VOLUME;
+    
     // URL encode the message for Sonos media_content_id
     const encodedMessage = encodeURIComponent(`"${ttsMessage}"`);
     
     return {
         action: "media_player.play_media",
         target: { 
-            entity_id: ["media_player.bedroom_sonos_amp"] // 🔊 Update with your Sonos entity ID
+            entity_id: [SONOS_ENTITY_ID] // 🔊 From environment configuration
         },
         data: {
             media_content_id: `media-source://tts/google_translate?message=${encodedMessage}`,
             media_content_type: "music",
             announce: true,
             extra: { 
-                volume: volume 
+                volume: finalVolume 
             }
         }
     };
@@ -190,8 +212,8 @@ if (timeData.success) {
 // 📤 CREATE OUTPUT MESSAGE
 // ========================================
 
-// Create the Home Assistant payload for Sonos TTS
-const sonosPayload = createSonosTTSPayload(ttsMessages.primary, 85); // 85% volume
+// Create the Home Assistant payload for Sonos TTS (uses environment volume)
+const sonosPayload = createSonosTTSPayload(ttsMessages.primary);
 
 // Prepare comprehensive output message
 const outputMessage = {
@@ -297,11 +319,23 @@ OUTPUT FORMAT (to Home Assistant):
 REQUIRED MODULES:
 - date-fns-tz (for timezone-aware formatting)
 
+ENVIRONMENT CONFIGURATION (.env file):
+{
+  "alarm_clock": {
+    "sonos": {
+      "entity_id": "media_player.bedroom_sonos_amp",
+      "volume": 85
+    },
+    "timezone": "America/Chicago",
+    "tts_variations": 5
+  }
+}
+
 CONFIGURATION:
-1. Update Sonos entity ID in createSonosTTSPayload()
-2. Adjust TIME_ZONE if needed
-3. Modify TTS messages in createTTSMessages()
-4. Adjust volume levels as needed
+1. Set alarm_clock.sonos.entity_id in .env file
+2. Set alarm_clock.sonos.volume in .env file  
+3. Adjust alarm_clock.timezone if needed
+4. Modify TTS messages in createTTSMessages() function
 
 FEATURES:
 - Multiple TTS message variations

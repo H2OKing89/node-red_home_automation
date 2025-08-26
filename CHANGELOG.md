@@ -24,6 +24,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated requirements with specific Node-RED palettes and modules
 - Modernized README with HTML enhancements and better formatting
 
+## [1.6.0] - 2025-08-25
+
+### Changed (1.6.0)
+
+- **BREAKING:** Transitioned alarm notification system from hardcoded messages to environment variables
+- Migrated all notification files from `global.get()` to `env.get()` for configuration retrieval
+- Updated notification message construction to use environment variable values instead of hardcoded strings
+- Added proper JSON parsing for environment variables stored as strings
+
+### Added (1.6.0)
+
+- Environment variable support for notification maps (`NOTIFY_MAP_ANDROID`, `NOTIFY_MAP_IOS`)
+- Configurable alarm messages via environment variables:
+  - `ALARM_DISABLED_PUSH` - Message when alarm is disabled
+  - `ALARM_PENDING_PUSH` - Message when alarm is pending/armed  
+  - `ALARM_TRIGGERED_PUSH` - Message when alarm is triggered
+  - `ALARM_DISABLED_TTS` - TTS message when alarm is disabled
+  - `ALARM_PENDING_TTS` - TTS message when alarm is pending
+  - `ALARM_TRIGGERED_TTS` - TTS message when alarm is triggered
+- Environment variable configuration file template (`.env`)
+
+### Fixed (1.6.0)
+
+- Notification files now properly use retrieved environment variable values instead of ignoring them
+- Corrected HTML formatting in push notifications with proper `\\u200B` prefix for color display
+- Fixed Buffer usage for image attachment encoding in NFC tag notifications
+- Updated TTS notifications to use environment variables instead of hardcoded messages
+
+### Improved (1.6.0)
+
+- Centralized message management through environment variables
+- Consistency across all notification files
+- Better separation of configuration from code
+- Environment-specific configuration support (dev/staging/production)
+
+### Files Updated
+
+- `alarm_flow/alarm_state_group/notify/disabled_push_mobile.js`
+- `alarm_flow/alarm_state_group/notify/pending_push_mobile.js`
+- `alarm_flow/alarm_state_group/notify/triggered_push_mobile.js`
+- `alarm_flow/alarm_state_group/notify/disabled_tts_mobile.js`
+- `alarm_flow/alarm_state_group/notify/pending_tts_mobile.js`
+- `alarm_flow/alarm_state_group/notify/triggered_tts_mobile.js`
+- `nfc_tags_flow/tag_notify_pushover.js`
+
 ## [1.5.3] - 2025-06-03
 
 ### Improved

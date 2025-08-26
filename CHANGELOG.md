@@ -24,6 +24,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated requirements with specific Node-RED palettes and modules
 - Modernized README with HTML enhancements and better formatting
 
+## [1.7.0] - 2025-08-26
+
+### Added (1.7.0)
+
+- **NEW FLOW:** Intelligent Wake-Up Alarm Clock TTS Scheduler (`alarm_clock_flow/`)
+  - Advanced cron-based alarm scheduling with cronplus node integration
+  - Multi-variation TTS announcements (5 different wake-up messages) to prevent monotony
+  - Timezone-aware time formatting with `date-fns-tz` integration and graceful fallbacks
+  - Sonos speaker integration via Home Assistant media_player service
+  - Environment-driven configuration system with JSON support
+  - Comprehensive alarm history tracking and analytics (last 10 alarms)
+  - Professional error handling with graceful degradation
+  - Configurable volume control and entity management
+- Comprehensive SunCalc solar intelligence documentation (`docs/modules/suncalc_enhanced.md`)
+  - Advanced daylight detection algorithms and solar positioning calculations
+  - Multi-zone intelligent lighting automation examples
+  - Complete solar phase system with dawn/dusk detection
+  - Testing framework for solar calculations and coordinate validation
+  - Professional automation examples for garage lighting and smart home integration
+
+### Enhanced (1.7.0)
+
+- Alarm clock scheduler with robust module dependency handling
+  - Automatic detection of `date-fns-tz` availability with fallback behavior
+  - Consistent error handling patterns across all alarm processing functions
+  - URL encoding optimization for TTS message compatibility
+
+### Security (1.7.0)
+
+- Privacy protection in documentation examples
+  - Replaced real GPS coordinates with generic example locations (New York City)
+  - Enhanced coordinate validation examples with fictional test data
+
+### Technical Improvements (1.7.0)
+
+- Environment variable configuration with nested JSON structure support
+- Advanced TTS message rotation system based on alarm count
+- Professional logging with emoji-enhanced status indicators
+- Comprehensive debugging data output for troubleshooting
+- Context-based alarm counter and history management
+
+### Files Added
+
+- `alarm_clock_flow/wake_alarm_clock_scheduler.js` - Core TTS scheduler implementation
+- `alarm_clock_flow/README.md` - Complete documentation with HTML styling and setup guides
+- `alarm_clock_flow/.env` - Environment configuration template
+- `docs/modules/suncalc_enhanced.md` - Solar intelligence integration guide
+
 ## [1.6.0] - 2025-08-25
 
 ### Changed (1.6.0)

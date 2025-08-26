@@ -1,11 +1,23 @@
-// ========================== DEPRECATED ================================= //
-// -------------------------- 08/25/2025 --------------------------------- //
-//
-// This script is now deprecated and replaced by environment variables
-// This script sets up global variables for a Node-RED flow to handle notifications and TTS messages for a security system.
-// It includes mappings for mobile notifications, TTS messages for alarm states, and a push notification
-// === Mobile Notification Mapping (Home Assistant entity_id to notify.*) ===
-//
+// ╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+// ║ ⚠️  DEPRECATED SCRIPT — EFFECTIVE: 2025-08-25                                                        ║
+// ║ ---------------------------------------------------------------------------------------------------- ║
+// ║ This file is frozen for history only. The live config moved to Node-RED Environment Variables.       ║
+// ║                                                                                                      ║
+// ║   ▶ Replace this script with ENV VARS (keys & types):                                                ║
+// ║        • NOTIFY_MAP_ANDROID    (JSON)                                                                ║
+// ║        • NOTIFY_MAP_IOS        (JSON)                                                                ║
+// ║        • ALARM_PENDING_TTS     (string)                                                              ║
+// ║        • ALARM_TRIGGERED_TTS   (string)                                                              ║
+// ║        • ALARM_PENDING_PUSH    (HTML/string)                                                         ║
+// ║                                                                                                      ║
+// ║   ▶ Quick migrate: Settings → Project/Flows → Environment → add keys → Deploy.                       ║
+// ║                                                                                                      ║
+// ║   Status: DECOMMISSIONED | Reason: centralized config, safer deploys, cleaner version control.       ║
+// ║                                                                                                      ║
+// ║   “Old scripts don’t die… they just go read-only.”                                                   ║
+// ║                                                                                                      ║
+// ╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
 const notifyMapAndroid = {
     "person.alana": "notify.mobile_app_alana_s22u",
     "person.betty": "notify.mobile_app_betty_s24u",

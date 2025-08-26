@@ -1,9 +1,11 @@
 // Node-RED Function Node: Multi-Device TTS Notification (Android & iOS)
 // Sends a TTS message to every device mapped for a user when the alarm is triggered, supporting both Android and iOS.
 
-const notifyMapAndroid = global.get("notifyMapAndroid");
-const notifyMapIOS = global.get("notifyMapIOS");
-const pushMessage = global.get("alarmTriggeredPUSH");
+const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
+const notifyMapIOSRaw = env.get("NOTIFY_MAP_IOS");
+const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
+const notifyMapIOS = typeof notifyMapIOSRaw === 'string' ? JSON.parse(notifyMapIOSRaw) : (notifyMapIOSRaw || {});
+const pushMessage = env.get("ALARM_TRIGGERED_PUSH");
 
 if (!msg.data) {
     node.error('msg.data is undefined');

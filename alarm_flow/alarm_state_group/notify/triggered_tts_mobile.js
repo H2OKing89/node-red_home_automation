@@ -1,8 +1,9 @@
 // Node-RED Function Node: Multi-Device TTS Notification
 // Sends a TTS message to every device mapped for a user when they're home.
 
-const notifyMapAndroid = global.get("notifyMapAndroid");
-const ttsMessage = global.get("alarmTriggeredTTS");
+const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
+const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
+const ttsMessage = env.get("ALARM_TRIGGERED_TTS");
 
 // REVIEW: Validate that msg.data exists to prevent errors if message structure changes
 if (!msg.data) {

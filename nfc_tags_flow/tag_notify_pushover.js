@@ -282,7 +282,7 @@ async function downloadImage(imageUrl) {
         // Handle image attachment using Base64 encoding
         if (imageData) {
             // Use Base64 encoding for image attachment
-            basePayload.attachment_base64 = imageData.buffer.toString('base64');
+            basePayload.attachment_base64 = Buffer.from(imageData.buffer).toString('base64');
             basePayload.attachment_type = imageData.contentType;
             node.log(`Image attachment added via Base64 encoding (${imageData.buffer.length} bytes, ${imageData.contentType})`);
         }

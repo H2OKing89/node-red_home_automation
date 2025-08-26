@@ -1,33 +1,28 @@
-<!-- markdownlint-disable MD033 MD041 MD036 MD022 MD032 MD013 MD031 -->
-
-<div align="center">
-
 # ☀️ SunCalc Solar Intelligence Guide
 
-### **🌅 Advanced Daylight Detection for Smart Home Automation**
+### 🌅 Advanced Daylight Detection for Smart Home Automation
 
-<img src="https://img.shields.io/badge/SunCalc-Solar_Intelligence-yellow?style=for-the-badge&logo=weather&logoColor=white" alt="SunCalc">
-<img src="https://img.shields.io/badge/Lighting-Automated-blue?style=for-the-badge&logo=lightbulb&logoColor=white" alt="Lighting">
-<img src="https://img.shields.io/badge/Node--RED-Compatible-red?style=for-the-badge&logo=nodered&logoColor=white" alt="Node-RED">
-<img src="https://img.shields.io/badge/Location-GPS_Based-green?style=for-the-badge&logo=location&logoColor=white" alt="GPS">
+<p align="center">
+  <img src="https://img.shields.io/badge/SunCalc-Solar_Intelligence-yellow?style=for-the-badge&logo=weather&logoColor=white" alt="SunCalc">
+  <img src="https://img.shields.io/badge/Lighting-Automated-blue?style=for-the-badge&logo=lightbulb&logoColor=white" alt="Lighting">
+  <img src="https://img.shields.io/badge/Node--RED-Compatible-red?style=for-the-badge&logo=nodered&logoColor=white" alt="Node-RED">
+  <img src="https://img.shields.io/badge/Location-GPS_Based-green?style=for-the-badge&logo=location&logoColor=white" alt="GPS">
+</p>
 
-<br>
+<p align="center">
+  <img src="https://img.shields.io/badge/Dawn_Detection-Automatic-brightgreen?style=flat-square" alt="Dawn">
+  <img src="https://img.shields.io/badge/Dusk_Detection-Automatic-orange?style=flat-square" alt="Dusk">
+  <img src="https://img.shields.io/badge/Solar_Phases-Complete-purple?style=flat-square" alt="Solar">
+  <img src="https://img.shields.io/badge/Seasonal_Aware-Adaptive-blue?style=flat-square" alt="Seasonal">
+</p>
 
-<img src="https://img.shields.io/badge/Dawn_Detection-Automatic-brightgreen?style=flat-square" alt="Dawn">
-<img src="https://img.shields.io/badge/Dusk_Detection-Automatic-orange?style=flat-square" alt="Dusk">
-<img src="https://img.shields.io/badge/Solar_Phases-Complete-purple?style=flat-square" alt="Solar">
-<img src="https://img.shields.io/badge/Seasonal_Aware-Adaptive-blue?style=flat-square" alt="Seasonal">
-
-<br>
-
-**☀️ Solar positioning calculations • 🌙 Intelligent darkness detection • 💡 Automated lighting control • 📍 Location-aware scheduling**
-
-</div>
+<p align="center"><strong>☀️ Solar positioning calculations • 🌙 Intelligent darkness detection • 💡 Automated lighting control • 📍 Location-aware scheduling</strong></p>
 
 ---
 
-## 🌟 **Solar Intelligence Overview**
+## 🌟 Solar Intelligence Overview
 
+<!-- markdownlint-disable-next-line MD033 -->
 <div align="center">
 
 ```mermaid

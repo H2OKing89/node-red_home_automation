@@ -1,21 +1,30 @@
-// Node-RED Function Node: Multi-Device TTS Notification
-// Sends a TTS message to every device mapped for a user when they're home.
+/**
+ * Node-RED Function Node: Multi-Device TTS Notification
+ * Sends TTS messages to configured Android devices when alarm is triggered
+ * NOTE: No home state check - everyone should be notified when alarm is triggered
+ * 
+ * @param {Object} msg - The incoming message object
+ * @param {Object} msg.data - Contains entity_id and state information
+ * @param {string} msg.data.entity_id - Home Assistant person entity ID
+ * @param {string} msg.data.state - Person's current state (home/not_home)
+ * @param {string} [msg.tts_text] - Optional override for TTS message text
+ * @returns {Array} Array of TTS messages for configured devices
+ */
 
-const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
-const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
-const ttsMessage = env.get("ALARM_TRIGGERED_TTS");
+try {
+    const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
+    const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
+    const ttsMessage = env.get("ALARM_TRIGGERED_TTS");
 
-// REVIEW: Validate that msg.data exists to prevent errors if message structure changes
-if (!msg.data) {
-    node.error('msg.data is undefined');
-    return null;
-}
+    if (!msg.data) {
+        node.error('msg.data is undefined', msg);
+        return null;
+    }
 
-// REVIEW: Consider caching global.get calls if this function becomes a performance hotspot
-if (typeof notifyMapAndroid !== 'object' || notifyMapAndroid === null) {
-    node.error('notifyMapAndroid must be a non-null object');
-    return null;
-}
+    if (typeof notifyMapAndroid !== 'object' || notifyMapAndroid === null) {
+        node.error('notifyMapAndroid must be a non-null object', msg);
+        return null;
+    }
 
 const { entity_id: entityId, state } = msg.data;
 
@@ -33,22 +42,29 @@ if (actions.length === 0) {
     return null;
 }
 
-// Home Assistant message format
-// Build a payload for each device
-const outMsgs = actions.map(action => ({
-    payload: {
-        action,
-        data: {
-            message: "TTS",
-            // This 'data' key is used for TTS parameters. how home assistant expects it. do not rename it.
+    // Home Assistant message format
+    // Build a payload for each device
+    const outMsgs = actions.map(action => ({
+        payload: {
+            action,
             data: {
-                ttl: 0,
-                priority: "high",
-                media_stream: "alarm_stream_max",
-                tts_text: tts
+                message: "TTS",
+                // This 'data' key is used for TTS parameters. how home assistant expects it. do not rename it.
+                data: {
+                    ttl: 0,
+                    priority: "high",
+                    media_stream: "alarm_stream_max",
+                    tts_text: tts
+                }
             }
         }
-    }
-}));
+    }));
 
-return [outMsgs]; // Sends all messages out the first output
+    node.log(`Building TTS notification for entity: ${entityId} (${actions.length} devices) - TRIGGERED ALARM`);
+    
+    return [outMsgs]; // Sends all messages out the first output
+
+} catch (error) {
+    node.error(`Error processing TTS notification: ${error.message}`, msg);
+    return null;
+}

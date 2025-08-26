@@ -1,16 +1,29 @@
-// Node-RED Function Node: Multi-Device TTS Notification (Android & iOS)
-// Sends a TTS message to every device mapped for a user when the alarm is triggered, supporting both Android and iOS.
+/**
+ * Node-RED Function Node: Multi-Device Push Notification (Android & iOS)
+ * Sends push notifications to configured devices when alarm is triggered
+ * NOTE: No home state check - everyone should be notified when alarm is triggered
+ * 
+ * @param {Object} msg - The incoming message object
+ * @param {Object} msg.data - Contains entity_id and state information
+ * @param {string} msg.data.entity_id - Home Assistant person entity ID
+ * @param {string} msg.data.state - Person's current state (home/not_home)
+ * @param {string} [msg.push_text] - Optional override for push notification text
+ * @param {Object} [msg.alarm] - Optional alarm information
+ * @param {string} [msg.alarm.message] - Additional alarm message to display
+ * @returns {Array} Array of notification messages for configured devices
+ */
 
-const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
-const notifyMapIOSRaw = env.get("NOTIFY_MAP_IOS");
-const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
-const notifyMapIOS = typeof notifyMapIOSRaw === 'string' ? JSON.parse(notifyMapIOSRaw) : (notifyMapIOSRaw || {});
-const pushMessage = env.get("ALARM_TRIGGERED_PUSH");
+try {
+    const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
+    const notifyMapIOSRaw = env.get("NOTIFY_MAP_IOS");
+    const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
+    const notifyMapIOS = typeof notifyMapIOSRaw === 'string' ? JSON.parse(notifyMapIOSRaw) : (notifyMapIOSRaw || {});
+    const pushMessage = env.get("ALARM_TRIGGERED_PUSH");
 
-if (!msg.data) {
-    node.error('msg.data is undefined');
-    return null;
-}
+    if (!msg.data) {
+        node.error('msg.data is undefined', msg);
+        return null;
+    }
 
 const { entity_id: entityId } = msg.data;
 
@@ -84,8 +97,15 @@ const iosPayload = (action) => ({
     }
 });
 
-const outMsgs = [];
-androidActions.forEach(action => outMsgs.push(androidPayload(action)));
-iosActions.forEach(action => outMsgs.push(iosPayload(action)));
+    const outMsgs = [];
+    androidActions.forEach(action => outMsgs.push(androidPayload(action)));
+    iosActions.forEach(action => outMsgs.push(iosPayload(action)));
 
-return [outMsgs];
+    node.log(`Building notification for entity: ${entityId} (${androidActions.length} Android, ${iosActions.length} iOS) - TRIGGERED ALARM`);
+    
+    return [outMsgs];
+
+} catch (error) {
+    node.error(`Error processing notification: ${error.message}`, msg);
+    return null;
+}

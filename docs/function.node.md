@@ -1,5 +1,7 @@
 # Writing Functions in Node-RED Function Nodes
 
+<!-- markdownlint-disable MD013 -->
+
 The Function node allows JavaScript code to be run against the messages that are passed through it.
 
 The message is passed in as an object called `msg`. By convention it will have a `msg.payload` property containing the body of the message.

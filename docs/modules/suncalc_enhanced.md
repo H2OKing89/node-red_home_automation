@@ -228,8 +228,8 @@ graph TD
 // ========================================
 
 // --- Location Configuration ---
-const LAT = 40.854118;  // 📍 Replace with your latitude
-const LON = -96.717293; // 📍 Replace with your longitude
+const LAT = 40.7128;    // 📍 Example: New York City latitude
+const LON = -74.0060;   // 📍 Example: New York City longitude
 
 // --- Current Date/Time ---
 const nowDate = new Date();
@@ -316,8 +316,8 @@ if (isDark) {
 // 🚗 INTELLIGENT GARAGE LIGHTING SYSTEM
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 const nowDate = new Date();
 
 // --- Solar Intelligence ---
@@ -443,8 +443,8 @@ return null; // No action needed
 // 🏠 MULTI-ZONE INTELLIGENT LIGHTING
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 const nowDate = new Date();
 
 // --- Enhanced Solar Calculations ---
@@ -623,8 +623,8 @@ return null;
 // 🌅 COMPLETE SOLAR PHASE SYSTEM
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 
 // --- Advanced Solar Phase Detection ---
 function getCompleteSolarAnalysis(date = new Date()) {
@@ -912,8 +912,8 @@ return null;
 // 🧪 SUNCALC TESTING FRAMEWORK
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 
 // --- Test Suite Runner ---
 function runSunCalcTests() {
@@ -976,7 +976,7 @@ function testBasicCalculations() {
 // --- Coordinate Validation Test ---
 function testCoordinateValidation() {
     const validTests = [
-        { lat: 40.854118, lon: -96.717293, name: 'Nebraska' },
+        { lat: 40.7128, lon: -74.0060, name: 'New York City' },
         { lat: 0, lon: 0, name: 'Equator/Prime Meridian' },
         { lat: -33.8688, lon: 151.2093, name: 'Sydney' }
     ];

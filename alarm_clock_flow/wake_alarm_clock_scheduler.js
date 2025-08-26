@@ -6,7 +6,18 @@
 // Output: Formatted TTS message for Home Assistant Sonos integration
 
 // --- Date-fns-tz Integration ---
-const { formatInTimeZone } = dateFnsTz;
+let formatInTimeZone;
+try {
+    if (dateFnsTz && dateFnsTz.formatInTimeZone) {
+        formatInTimeZone = dateFnsTz.formatInTimeZone;
+    } else {
+        node.error('❌ date-fns-tz not available - alarm announcements may use server time');
+        formatInTimeZone = undefined;
+    }
+} catch (error) {
+    node.error('❌ Error loading date-fns-tz module - using fallback time formatting');
+    formatInTimeZone = undefined;
+}
 
 // --- Environment Configuration ---
 const alarmConfigRaw = env.get("ALARM_CLOCK") || {};
@@ -14,12 +25,6 @@ const alarmConfig = alarmConfigRaw.alarm_clock || alarmConfigRaw; // Support bot
 const TIME_ZONE = alarmConfig.timezone || 'America/Chicago'; // 🌍 Fallback to default
 const SONOS_ENTITY_ID = alarmConfig.sonos?.entity_id || 'media_player.bedroom_sonos_amp';
 const DEFAULT_VOLUME = alarmConfig.sonos?.volume || 85;
-
-// --- Error Handling Check ---
-if (!dateFnsTz?.formatInTimeZone) {
-    node.error('❌ date-fns-tz not available - alarm announcements may use server time');
-    // Continue with fallback behavior
-}
 
 // --- Configuration Validation ---
 if (!alarmConfig.sonos?.entity_id) {
@@ -161,7 +166,8 @@ function createSonosTTSPayload(ttsMessage, volume = null) {
     const finalVolume = volume !== null ? volume : DEFAULT_VOLUME;
     
     // URL encode the message for Sonos media_content_id
-    const encodedMessage = encodeURIComponent(`"${ttsMessage}"`);
+    // Note: Some Sonos integrations may require quotes, adjust based on your setup
+    const encodedMessage = encodeURIComponent(ttsMessage);
     
     return {
         action: "media_player.play_media",
@@ -317,7 +323,7 @@ OUTPUT FORMAT (to Home Assistant):
 }
 
 REQUIRED MODULES:
-- date-fns-tz (for timezone-aware formatting)
+- date-fns-tz (for timezone-aware formatting) - Optional but recommended
 
 ENVIRONMENT CONFIGURATION (.env file):
 {
@@ -336,12 +342,14 @@ CONFIGURATION:
 2. Set alarm_clock.sonos.volume in .env file  
 3. Adjust alarm_clock.timezone if needed
 4. Modify TTS messages in createTTSMessages() function
+5. Install date-fns-tz module for enhanced timezone support (optional)
 
 FEATURES:
 - Multiple TTS message variations
-- Timezone-aware time formatting
-- Error handling with fallbacks
+- Timezone-aware time formatting (with date-fns-tz) or fallback formatting
+- Robust error handling with graceful fallbacks
 - Alarm history tracking
 - Professional logging
 - Comprehensive debugging data
+- Module availability detection and fallback behavior
 */

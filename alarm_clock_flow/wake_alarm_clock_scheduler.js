@@ -500,7 +500,11 @@ INPUT FORMAT (from cron job):
 }
 
 OUTPUT FORMAT (to Home Assistant):
-TTS Output (Output 1):
+This function returns an ARRAY of two messages for dual output processing:
+
+RETURN VALUE: [ttsOutputMessage, lightOutputMessage]
+
+TTS Output (Output 1 - Array Index 0):
 {
   "payload": {
     "action": "media_player.play_media",
@@ -511,10 +515,13 @@ TTS Output (Output 1):
       "announce": true,
       "extra": { "volume": 85 }
     }
-  }
+  },
+  "alarm_data": { ... },
+  "tts_data": { ... },
+  "time_data": { ... }
 }
 
-Light Output (Output 2):
+Light Control Output (Output 2 - Array Index 1):
 {
   "payload": {
     "action": "light.turn_on",
@@ -523,8 +530,15 @@ Light Output (Output 2):
       "brightness_pct": 100,
       "transition": 300
     }
-  }
+  },
+  "light_data": { ... },
+  "alarm_reference": { ... }
 }
+
+DUAL OUTPUT USAGE:
+- Connect Output 1 to Home Assistant API Call node for TTS
+- Connect Output 2 to Home Assistant API Call node for Light Control
+- Both outputs fire simultaneously for synchronized wake-up experience
 
 REQUIRED MODULES:
 - date-fns-tz (for timezone-aware formatting) - Optional but recommended
@@ -554,6 +568,15 @@ CONFIGURATION:
 5. Adjust alarm_clock.timezone if needed
 6. Modify TTS messages in createTTSMessages() function
 7. Install date-fns-tz module for enhanced timezone support (optional)
+8. Configure Function Node with 2 outputs in Node-RED editor
+9. Connect Output 1 to Home Assistant API Call node (TTS)
+10. Connect Output 2 to Home Assistant API Call node (Light Control)
+
+NODE-RED FUNCTION SETUP:
+- Set "Number of outputs" to 2 in Function node properties
+- Output 1: Routes to Home Assistant TTS service
+- Output 2: Routes to Home Assistant Light service
+- Both outputs process simultaneously for coordinated wake-up
 
 FEATURES:
 - Multiple TTS message variations

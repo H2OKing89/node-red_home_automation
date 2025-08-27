@@ -1,9 +1,10 @@
 // ========================================
-// ⏰ WAKE ALARM CLOCK TTS SCHEDULER
+// ⏰ WAKE ALARM CLOCK TTS SCHEDULER + LIGHT CONTROL
 // ========================================
-// Processes cron job messages and creates TTS announcements for Sonos amp
+// Processes cron job messages and creates TTS announcements for Sonos amp with synchronized light control
 // Input: Cron job message with time trigger information
-// Output: Formatted TTS message for Home Assistant Sonos integration
+// Output 1: Formatted TTS message for Home Assistant Sonos integration
+// Output 2: Light control message for Home Assistant lighting automation
 
 // --- Date-fns-tz Integration ---
 let formatInTimeZone;
@@ -25,12 +26,21 @@ const alarmConfig = alarmConfigRaw.alarm_clock || alarmConfigRaw; // Support bot
 const TIME_ZONE = alarmConfig.timezone || 'America/Chicago'; // 🌍 Fallback to default
 const SONOS_ENTITY_ID = alarmConfig.sonos?.entity_id || 'media_player.bedroom_sonos_amp';
 const DEFAULT_VOLUME = alarmConfig.sonos?.volume || 85;
+const LIGHT_ENTITY_ID = alarmConfig.light?.entity_id || 'light.basement_bedroom_light';
+const LIGHT_BRIGHTNESS = alarmConfig.light?.brightness_pct || 100;
+const LIGHT_TRANSITION = alarmConfig.light?.transition || 300;
 
 // --- Configuration Validation ---
 if (!alarmConfig.sonos?.entity_id) {
     node.warn('⚠️ Using default Sonos entity ID - consider setting alarm_clock.sonos.entity_id in environment');
 } else {
     node.log(`✅ Loaded Sonos entity: ${SONOS_ENTITY_ID}, Volume: ${DEFAULT_VOLUME}, Timezone: ${TIME_ZONE}`);
+}
+
+if (!alarmConfig.light?.entity_id) {
+    node.warn('⚠️ Using default Light entity ID - consider setting alarm_clock.light.entity_id in environment');
+} else {
+    node.log(`✅ Loaded Light entity: ${LIGHT_ENTITY_ID}, Brightness: ${LIGHT_BRIGHTNESS}%, Transition: ${LIGHT_TRANSITION}s`);
 }
 
 // --- Validate Incoming Message ---
@@ -188,6 +198,27 @@ function createSonosTTSPayload(ttsMessage, volume = null) {
 }
 
 // ========================================
+// 💡 LIGHT CONTROL PAYLOAD CREATION
+// ========================================
+
+function createLightTurnOnPayload(brightness = null, transition = null) {
+    // Use environment settings or provided values or defaults
+    const finalBrightness = brightness !== null ? brightness : LIGHT_BRIGHTNESS;
+    const finalTransition = transition !== null ? transition : LIGHT_TRANSITION;
+    
+    return {
+        action: "light.turn_on",
+        target: {
+            entity_id: [LIGHT_ENTITY_ID] // 💡 From environment configuration
+        },
+        data: {
+            brightness_pct: finalBrightness,
+            transition: finalTransition
+        }
+    };
+}
+
+// ========================================
 // 🎯 MAIN PROCESSING LOGIC
 // ========================================
 
@@ -217,14 +248,17 @@ if (timeData.success) {
 }
 
 // ========================================
-// 📤 CREATE OUTPUT MESSAGE
+// 📤 CREATE OUTPUT MESSAGES
 // ========================================
 
 // Create the Home Assistant payload for Sonos TTS (uses environment volume)
 const sonosPayload = createSonosTTSPayload(ttsMessages.primary);
 
-// Prepare comprehensive output message
-const outputMessage = {
+// Create the Home Assistant payload for Light control (uses environment settings)
+const lightPayload = createLightTurnOnPayload();
+
+// Prepare comprehensive TTS output message (Output 1)
+const ttsOutputMessage = {
     payload: sonosPayload,
     
     // Original alarm data for debugging/logging
@@ -258,6 +292,31 @@ const outputMessage = {
     _msgid: msg._msgid // Preserve original message ID
 };
 
+// Prepare dedicated Light control output message (Output 2)
+const lightOutputMessage = {
+    payload: lightPayload,
+    
+    // Light control metadata
+    light_data: {
+        entity_id: LIGHT_ENTITY_ID,
+        brightness_pct: LIGHT_BRIGHTNESS,
+        transition: LIGHT_TRANSITION,
+        triggered_by: "wake_alarm_clock_scheduler"
+    },
+    
+    // Reference to alarm that triggered this light action
+    alarm_reference: {
+        scheduled_time: timeData.success ? timeData.originalTime : 'unknown',
+        trigger_timestamp: msg.payload?.triggerTimestamp,
+        alarm_count: timeData.success ? timeData.count : 0
+    },
+    
+    // Message metadata
+    automation_source: "wake_alarm_clock_scheduler",
+    generated_at: new Date().toISOString(),
+    _msgid: msg._msgid // Preserve original message ID
+};
+
 // ========================================
 // 🎯 ADVANCED FEATURES (OPTIONAL)
 // ========================================
@@ -284,19 +343,21 @@ context.set('alarm_counter', alarmCounter + 1);
 
 // Log summary for debugging
 node.log(`📊 Alarm Summary: Count=${timeData.count}, Total=${alarmCounter + 1}, History=${alarmHistory.length} entries`);
+node.log(`💡 Light Control: ${LIGHT_ENTITY_ID} → ${LIGHT_BRIGHTNESS}% brightness, ${LIGHT_TRANSITION}s transition`);
 
 // ========================================
 // 📋 FINAL OUTPUT
 // ========================================
 
-// Return the formatted message for Home Assistant
-return outputMessage;
+// Return separate messages: [TTS Message, Light Control Message]
+return [ttsOutputMessage, lightOutputMessage];
 
 // ========================================
 // 📝 USAGE NOTES
 // ========================================
 /*
-This function processes cron job messages and creates TTS announcements for Sonos speakers.
+This function processes cron job messages and creates TTS announcements for Sonos speakers
+with synchronized light control for a complete wake-up experience.
 
 INPUT FORMAT (from cron job):
 {
@@ -311,6 +372,7 @@ INPUT FORMAT (from cron job):
 }
 
 OUTPUT FORMAT (to Home Assistant):
+TTS Output (Output 1):
 {
   "payload": {
     "action": "media_player.play_media",
@@ -320,6 +382,18 @@ OUTPUT FORMAT (to Home Assistant):
       "media_content_type": "music",
       "announce": true,
       "extra": { "volume": 85 }
+    }
+  }
+}
+
+Light Output (Output 2):
+{
+  "payload": {
+    "action": "light.turn_on",
+    "target": { "entity_id": ["light.basement_bedroom_light"] },
+    "data": {
+      "brightness_pct": 100,
+      "transition": 300
     }
   }
 }
@@ -334,6 +408,11 @@ ENVIRONMENT CONFIGURATION (.env file):
       "entity_id": "media_player.bedroom_sonos_amp",
       "volume": 85
     },
+    "light": {
+      "entity_id": "light.basement_bedroom_light",
+      "brightness_pct": 100,
+      "transition": 300
+    },
     "timezone": "America/Chicago",
     "tts_variations": 5
   }
@@ -342,16 +421,22 @@ ENVIRONMENT CONFIGURATION (.env file):
 CONFIGURATION:
 1. Set alarm_clock.sonos.entity_id in .env file
 2. Set alarm_clock.sonos.volume in .env file  
-3. Adjust alarm_clock.timezone if needed
-4. Modify TTS messages in createTTSMessages() function
-5. Install date-fns-tz module for enhanced timezone support (optional)
+3. Set alarm_clock.light.entity_id in .env file
+4. Set alarm_clock.light.brightness_pct and transition in .env file
+5. Adjust alarm_clock.timezone if needed
+6. Modify TTS messages in createTTSMessages() function
+7. Install date-fns-tz module for enhanced timezone support (optional)
 
 FEATURES:
 - Multiple TTS message variations
+- Synchronized light control with configurable brightness and transition
+- Dual output system (TTS + Light control)
 - Timezone-aware time formatting (with date-fns-tz) or fallback formatting
 - Robust error handling with graceful fallbacks
 - Alarm history tracking
 - Professional logging
 - Comprehensive debugging data
 - Module availability detection and fallback behavior
+- Environment-driven configuration for both audio and lighting
+- Independent Home Assistant action payloads for seamless integration
 */

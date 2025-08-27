@@ -1,15 +1,16 @@
-# ⏰ Alarm Clock TTS Scheduler
+# ⏰ Alarm Clock TTS Scheduler + Light Control
 
 <div align="center">
   <img src="https://img.shields.io/badge/Node--RED-8F0000?style=for-the-badge&logo=nodered&logoColor=white" alt="Node-RED">
   <img src="https://img.shields.io/badge/Home_Assistant-41BDF5?style=for-the-badge&logo=home-assistant&logoColor=white" alt="Home Assistant">
   <img src="https://img.shields.io/badge/Sonos-000000?style=for-the-badge&logo=sonos&logoColor=white" alt="Sonos">
+  <img src="https://img.shields.io/badge/Smart_Lights-FFD700?style=for-the-badge&logo=lightbulb&logoColor=black" alt="Smart Lights">
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
 </div>
 
 <div align="center">
-  <h3>🗣️ Intelligent Wake-Up Alarm with Text-to-Speech Announcements</h3>
-  <p><em>A sophisticated Node-RED flow that transforms cron schedules into personalized wake-up calls via Sonos speakers</em></p>
+  <h3>🗣️ Intelligent Wake-Up System with TTS Announcements & Automated Lighting</h3>
+  <p><em>A sophisticated Node-RED flow that transforms cron schedules into personalized wake-up experiences via Sonos speakers and smart lighting</em></p>
 </div>
 
 ---
@@ -20,11 +21,12 @@
 <tr>
 <td width="60%">
 
-This advanced alarm clock system intelligently processes scheduled cron jobs and converts them into natural, timezone-aware TTS announcements through your Sonos sound system. Perfect for creating gentle, personalized wake-up experiences that announce the current time with variety and professional polish.
+This advanced alarm clock system intelligently processes scheduled cron jobs and converts them into natural, timezone-aware TTS announcements through your Sonos sound system, while simultaneously controlling smart lighting for a complete wake-up experience. Perfect for creating gentle, personalized morning routines that announce the current time with variety and gradually illuminate your space.
 
 **Key Benefits:**
 
 - 🌅 **Smart Wake-Up**: Multiple TTS message variations prevent monotony
+- 💡 **Automated Lighting**: Synchronized light control with configurable brightness and transitions
 - 🌍 **Timezone Aware**: Accurate time formatting for any location
 - 🔊 **Sonos Integration**: High-quality audio announcements
 - ⚙️ **Environment Driven**: Fully configurable via environment variables
@@ -35,11 +37,12 @@ This advanced alarm clock system intelligently processes scheduled cron jobs and
 
 ```mermaid
 flowchart TD
-    A[🕕 Cron Scheduler] --> B[⚙️ TTS Processor]
+    A[🕕 Cron Scheduler] --> B[⚙️ TTS + Light Processor]
     B --> C[🔊 Sonos Speaker]
-    B --> D[📊 Debug Output]
-    E[🌍 Environment Config] --> B
-    F[📝 Alarm History] --> B
+    B --> D[💡 Smart Lights]
+    B --> E[📊 Debug Output]
+    F[🌍 Environment Config] --> B
+    G[📝 Alarm History] --> B
 ```
 
 </td>
@@ -65,8 +68,9 @@ flowchart TD
 | **Component** | **Function** | **Input** | **Output** |
 |---------------|--------------|-----------|------------|
 | 🗓️ **Cronplus Node** | Schedule Management | Cron Expressions | Trigger Messages |
-| ⚙️ **Function Node** | TTS Processing | Timestamp Data | HA Service Calls |
-| 🔊 **API Call Service** | Home Assistant | Media Commands | Sonos Playback |
+| ⚙️ **Function Node** | TTS + Light Processing | Timestamp Data | HA Service Calls |
+| 🔊 **API Call Service** | Home Assistant TTS | Media Commands | Sonos Playback |
+| 💡 **API Call Service** | Home Assistant Light | Light Commands | Smart Light Control |
 | 🐛 **Debug Node** | Monitoring | Flow Data | Console Logs |
 
 ---
@@ -142,6 +146,8 @@ flowchart TD
 
 - ✅ **Environment-driven configuration**
 - ✅ **Multiple TTS message variations (5 different wake-up messages)**
+- ✅ **Synchronized smart light control with configurable brightness and transitions**
+- ✅ **Dual output system (TTS + Light control)**
 - ✅ **Timezone-aware time formatting**
 - ✅ **Error handling with graceful fallbacks**
 - ✅ **Alarm history tracking and analytics**

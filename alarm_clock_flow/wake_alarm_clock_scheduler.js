@@ -72,13 +72,15 @@ function processAlarmTime(message) {
             };
         } else {
             // Fallback formatting using native Date methods
-            const timeOptions = { 
-                hour: 'numeric', 
-                minute: '2-digit', 
+            /** @type {Intl.DateTimeFormatOptions} */
+            const timeOptions = {
+                hour: 'numeric',
+                minute: '2-digit',
                 hour12: true,
                 timeZone: TIME_ZONE
             };
-            
+
+            /** @type {Intl.DateTimeFormatOptions} */
             const displayOptions = {
                 hour: 'numeric',
                 minute: '2-digit',
@@ -90,7 +92,7 @@ function processAlarmTime(message) {
                 day: 'numeric',
                 timeZoneName: 'short'
             };
-            
+
             formattedTimes = {
                 tts: alarmTime.toLocaleTimeString('en-US', timeOptions),
                 display: alarmTime.toLocaleString('en-US', displayOptions),

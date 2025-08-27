@@ -30,7 +30,12 @@ This advanced alarm clock system intelligently processes scheduled cron jobs and
 - 🌍 **Timezone Aware**: Accurate time formatting for any location
 - 🔊 **Sonos Integration**: High-quality audio announcements
 - ⚙️ **Environment Driven**: Fully configurable via environment variables
-- 📊 **Advanced Tracking**: Comprehensive alarm history and analytics
+- 🏗️ **Professional Node-RED**: Follows function.node.md best practices and standards
+- �️ **Error Resilience**: Advanced error handling with catch node integration and graceful fallbacks
+- 📊 **Status Monitoring**: Comprehensive node status indicators with color-coded feedback
+- 🧹 **Resource Management**: Proper cleanup and lifecycle management for reliable operation
+- 🔍 **Advanced Debugging**: Structured logging system with detailed debug capabilities
+- 📈 **Analytics Ready**: Built-in alarm history tracking and performance monitoring
 
 </td>
 <td width="40%">
@@ -48,6 +53,76 @@ flowchart TD
 </td>
 </tr>
 </table>
+
+---
+
+## 🏗️ **Professional Node-RED Implementation**
+
+<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 20px; border-radius: 15px; color: white; margin: 20px 0;">
+  <h3 style="margin: 0; text-align: center;">🎯 Built Following Node-RED Best Practices</h3>
+  <p style="margin: 10px 0 0 0; text-align: center;">This function implements professional Node-RED standards from function.node.md</p>
+</div>
+
+### **🔧 Advanced Node-RED Features**
+
+| **Feature** | **Implementation** | **Benefit** |
+|-------------|-------------------|-------------|
+| 🔍 **Professional Logging** | Structured logger with `[Wake Alarm]` prefix | Consistent, searchable logs with debug data |
+| 📊 **Node Status Management** | Color-coded status indicators throughout processing | Visual feedback in Node-RED editor |
+| 🛡️ **Error Handling** | Critical errors trigger catch nodes via `node.error(msg)` | Proper error flow integration |
+| 🧹 **Lifecycle Management** | `node.on('close')` cleanup handler | Resource management and memory leak prevention |
+| 🎯 **Status Conventions** | Standard Node-RED colors and shapes | Professional UX following Node-RED guidelines |
+| 🔍 **Debug Capabilities** | Rich debug information with structured data | Enhanced troubleshooting and development |
+
+### **📋 Node Status Indicators**
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
+
+<div style="border: 2px solid #6c757d; border-radius: 8px; padding: 15px; background-color: #f8f9fa;">
+  <h4 style="color: #6c757d; margin: 0 0 10px 0;">⚪ Grey Ring</h4>
+  <p style="margin: 0; font-size: 14px;"><strong>Ready State:</strong> Waiting for alarm messages</p>
+</div>
+
+<div style="border: 2px solid #007bff; border-radius: 8px; padding: 15px; background-color: #e3f2fd;">
+  <h4 style="color: #007bff; margin: 0 0 10px 0;">🔵 Blue Dot</h4>
+  <p style="margin: 0; font-size: 14px;"><strong>Processing:</strong> Actively processing alarm</p>
+</div>
+
+<div style="border: 2px solid #28a745; border-radius: 8px; padding: 15px; background-color: #d4edda;">
+  <h4 style="color: #28a745; margin: 0 0 10px 0;">🟢 Green Dot</h4>
+  <p style="margin: 0; font-size: 14px;"><strong>Success:</strong> Alarm processed successfully</p>
+</div>
+
+<div style="border: 2px solid #ffc107; border-radius: 8px; padding: 15px; background-color: #fff3cd;">
+  <h4 style="color: #ffc107; margin: 0 0 10px 0;">🟡 Yellow Dot</h4>
+  <p style="margin: 0; font-size: 14px;"><strong>Warning:</strong> Using default configuration</p>
+</div>
+
+<div style="border: 2px solid #dc3545; border-radius: 8px; padding: 15px; background-color: #f8d7da;">
+  <h4 style="color: #dc3545; margin: 0 0 10px 0;">🔴 Red Ring</h4>
+  <p style="margin: 0; font-size: 14px;"><strong>Error:</strong> Processing or configuration error</p>
+</div>
+
+</div>
+
+### **📝 Professional Logging Examples**
+
+```javascript
+// Structured logging with debug data
+logger.debug('Environment configuration loaded', {
+    alarm_config_structure: Object.keys(alarmConfig),
+    sonos_configured: !!alarmConfig.sonos?.entity_id,
+    light_configured: !!alarmConfig.light?.entity_id,
+    timezone: TIME_ZONE,
+    dateFns_available: !!formatInTimeZone
+});
+
+// Error handling with stack traces
+logger.error('Error processing alarm time', error, msg);
+
+// Information logging with context
+logger.info(`Alarm triggered: ${timeData.formattedTimes.display}`);
+```
 
 ---
 
@@ -149,9 +224,12 @@ flowchart TD
 - ✅ **Synchronized smart light control with configurable brightness and transitions**
 - ✅ **Dual output system (TTS + Light control)**
 - ✅ **Timezone-aware time formatting**
-- ✅ **Error handling with graceful fallbacks**
+- ✅ **Professional Node-RED compliance with function.node.md standards**
+- ✅ **Advanced error handling with catch node integration**
+- ✅ **Comprehensive node status indicators and lifecycle management**
+- ✅ **Structured logging system with debug capabilities**
 - ✅ **Alarm history tracking and analytics**
-- ✅ **Professional logging and debugging**
+- ✅ **Resource cleanup and memory management**
 
 ---
 
@@ -455,6 +533,7 @@ const customVariations = [
     <li>Check Home Assistant TTS service</li>
     <li>Confirm volume is not set to 0</li>
     <li>Test manual TTS call in HA</li>
+    <li>Check node status indicators</li>
   </ul>
 </div>
 
@@ -482,11 +561,49 @@ const customVariations = [
   <h4 style="color: #155724; margin: 0 0 10px 0;">🟢 Debug Tips</h4>
   <ul style="color: #155724; margin: 0;">
     <li>Enable debug node to monitor data flow</li>
-    <li>Check Node-RED console for detailed logs</li>
+    <li>Check Node-RED console for <code>[Wake Alarm]</code> logs</li>
+    <li>Monitor node status colors and messages</li>
+    <li>Use structured logging output for troubleshooting</li>
     <li>Verify cron expressions are valid</li>
     <li>Test with simplified TTS messages</li>
   </ul>
 </div>
+
+</div>
+
+### **🔍 Professional Debugging**
+
+<div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; margin: 20px 0;">
+
+**Leverage the enhanced logging system:**
+
+```javascript
+// Check Node-RED console for structured logs:
+[Wake Alarm] Environment configuration loaded
+[Wake Alarm] Alarm triggered: August 26th, 2025 at 7:00 AM CDT
+[Wake Alarm] TTS Message: "Good morning! The time is 7:00 AM..."
+[Wake Alarm] Payloads created successfully
+```
+
+**Monitor node status indicators:**
+
+- 🔵 **Blue processing dot**: Function is actively processing alarm
+- 🟢 **Green success dot**: Alarm processed and messages sent
+- 🔴 **Red error ring**: Check logs for detailed error information
+- 🟡 **Yellow warning**: Using default configuration values
+
+**Debug environment configuration:**
+
+```javascript
+// Enable debug logging to see:
+{
+  "alarm_config_structure": ["sonos", "light", "timezone"],
+  "sonos_configured": true,
+  "light_configured": true,
+  "timezone": "America/Chicago",
+  "dateFns_available": true
+}
+```
 
 </div>
 
@@ -535,7 +652,7 @@ const customVariations = [
     </div>
     <div>
       <strong>🔄 Version</strong><br>
-      <span style="color: #666;">1.0.0</span>
+      <span style="color: #666;">2.0.0 - Professional Node-RED</span>
     </div>
   </div>
   

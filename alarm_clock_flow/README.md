@@ -6,6 +6,11 @@
   <img src="https://img.shields.io/badge/Sonos-000000?style=for-the-badge&logo=sonos&logoColor=white" alt="Sonos">
   <img src="https://img.shields.io/badge/Smart_Lights-FFD700?style=for-the-badge&logo=lightbulb&logoColor=black" alt="Smart Lights">
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">
+  <br>
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/github/last-commit/H2OKing89/node-red_home_automation?style=flat-square" alt="Last Commit">
+  <img src="https://img.shields.io/badge/Maintained-Yes-brightgreen?style=flat-square" alt="Maintained">
 </div>
 
 <div align="center">
@@ -13,13 +18,65 @@
   <p><em>A sophisticated Node-RED flow that transforms cron schedules into personalized wake-up experiences via Sonos speakers and smart lighting</em></p>
 </div>
 
+## 📋 **Table of Contents**
+
+- [🚀 Quick Start](#-quick-start)
+- [🎯 Overview](#-overview)
+- [🏗️ Implementation Details](#️-implementation-details)
+- [📦 Node Configuration](#-node-configuration)
+- [⚙️ Environment Configuration](#️-environment-configuration)
+- [🛠️ Installation & Setup](#️-installation--setup)
+- [🎮 Usage Examples](#-usage-examples)
+- [🚨 Troubleshooting](#-troubleshooting)
+- [📈 Monitoring & Analytics](#-monitoring--analytics)
+- [🔧 Advanced Features](#-advanced-features)
+
+---
+
+## 🚀 **Quick Start**
+
+> [!TIP]
+> **Get running in 5 minutes!**
+
+1. **Install Required Nodes**
+   - `node-red-contrib-cronplus`
+   - `node-red-contrib-home-assistant-websocket`
+   - `date-fns-tz` (optional but recommended)
+
+2. **Set Environment Variable**
+   ```json
+   {
+     "alarm_clock": {
+       "sonos": {
+         "entity_id": "media_player.your_sonos_amp",
+         "volume": 85
+       },
+       "light": {
+         "entity_id": "light.your_bedroom_light",
+         "brightness_pct": 100,
+         "transition": 300
+       },
+       "timezone": "America/Chicago"
+     }
+   }
+   ```
+
+3. **Import Flow → Configure Function Node with 2 outputs → Deploy**
+
+4. **Test with inject payload:**
+   ```json
+   {
+     "topic": "07:00",
+     "payload": {
+       "triggerTimestamp": 1735200000000,
+       "status": {"count": 1, "description": "Test alarm"}
+     }
+   }
+   ```
+
 ---
 
 ## 🎯 **Overview**
-
-<table>
-<tr>
-<td width="60%">
 
 This advanced alarm clock system intelligently processes scheduled cron jobs and converts them into natural, timezone-aware TTS announcements through your Sonos sound system, while simultaneously controlling smart lighting for a complete wake-up experience. Perfect for creating gentle, personalized morning routines that announce the current time with variety and gradually illuminate your space.
 
@@ -30,15 +87,12 @@ This advanced alarm clock system intelligently processes scheduled cron jobs and
 - 🌍 **Timezone Aware**: Accurate time formatting for any location
 - 🔊 **Sonos Integration**: High-quality audio announcements
 - ⚙️ **Environment Driven**: Fully configurable via environment variables
-- 🏗️ **Professional Node-RED**: Follows function.node.md best practices and standards
-- �️ **Error Resilience**: Advanced error handling with catch node integration and graceful fallbacks
+- 🏗️ **Professional Node-RED**: Follows Node-RED best practices and standards
+- 🛡️ **Error Resilience**: Advanced error handling with catch node integration and graceful fallbacks
 - 📊 **Status Monitoring**: Comprehensive node status indicators with color-coded feedback
 - 🧹 **Resource Management**: Proper cleanup and lifecycle management for reliable operation
 - 🔍 **Advanced Debugging**: Structured logging system with detailed debug capabilities
 - 📈 **Analytics Ready**: Built-in alarm history tracking and performance monitoring
-
-</td>
-<td width="40%">
 
 ```mermaid
 flowchart TD
@@ -50,18 +104,16 @@ flowchart TD
     G[📝 Alarm History] --> B
 ```
 
-</td>
-</tr>
-</table>
+> [!IMPORTANT]
+> **Prerequisites**: Requires Home Assistant with TTS service configured and Sonos integration active.
 
 ---
 
-## 🏗️ **Professional Node-RED Implementation**
+## 🏗️ **Implementation Details**
 
-<div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 20px; border-radius: 15px; color: white; margin: 20px 0;">
-  <h3 style="margin: 0; text-align: center;">🎯 Built Following Node-RED Best Practices</h3>
-  <p style="margin: 10px 0 0 0; text-align: center;">This function implements professional Node-RED standards from function.node.md</p>
-</div>
+> [!INFO]
+> **Built Following Node-RED Best Practices**  
+> This function implements professional Node-RED standards from [function.node.md](../docs/function.node.md)
 
 ### **🔧 Advanced Node-RED Features**
 
@@ -76,34 +128,13 @@ flowchart TD
 
 ### **📋 Node Status Indicators**
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
-
-<div style="border: 2px solid #6c757d; border-radius: 8px; padding: 15px; background-color: #f8f9fa;">
-  <h4 style="color: #6c757d; margin: 0 0 10px 0;">⚪ Grey Ring</h4>
-  <p style="margin: 0; font-size: 14px;"><strong>Ready State:</strong> Waiting for alarm messages</p>
-</div>
-
-<div style="border: 2px solid #007bff; border-radius: 8px; padding: 15px; background-color: #e3f2fd;">
-  <h4 style="color: #007bff; margin: 0 0 10px 0;">🔵 Blue Dot</h4>
-  <p style="margin: 0; font-size: 14px;"><strong>Processing:</strong> Actively processing alarm</p>
-</div>
-
-<div style="border: 2px solid #28a745; border-radius: 8px; padding: 15px; background-color: #d4edda;">
-  <h4 style="color: #28a745; margin: 0 0 10px 0;">🟢 Green Dot</h4>
-  <p style="margin: 0; font-size: 14px;"><strong>Success:</strong> Alarm processed successfully</p>
-</div>
-
-<div style="border: 2px solid #ffc107; border-radius: 8px; padding: 15px; background-color: #fff3cd;">
-  <h4 style="color: #ffc107; margin: 0 0 10px 0;">🟡 Yellow Dot</h4>
-  <p style="margin: 0; font-size: 14px;"><strong>Warning:</strong> Using default configuration</p>
-</div>
-
-<div style="border: 2px solid #dc3545; border-radius: 8px; padding: 15px; background-color: #f8d7da;">
-  <h4 style="color: #dc3545; margin: 0 0 10px 0;">🔴 Red Ring</h4>
-  <p style="margin: 0; font-size: 14px;"><strong>Error:</strong> Processing or configuration error</p>
-</div>
-
-</div>
+| Indicator | Meaning | Description |
+|-----------|---------|-------------|
+| ⚪ **Grey Ring** | Ready State | Waiting for alarm messages |
+| 🔵 **Blue Dot** | Processing | Actively processing alarm |
+| 🟢 **Green Dot** | Success | Alarm processed successfully |
+| 🟡 **Yellow Dot** | Warning | Using default configuration |
+| 🔴 **Red Ring** | Error | Processing or configuration error (see logs) |
 
 ### **📝 Professional Logging Examples**
 
@@ -212,10 +243,9 @@ logger.info(`Alarm triggered: ${timeData.formattedTimes.display}`);
 
 ### **2. TTS Processing Function**
 
-<div style="background: linear-gradient(135deg, #FF6B6B, #4ECDC4); padding: 15px; border-radius: 10px; color: white; margin: 15px 0;">
-  <h4 style="margin: 0;">🧠 Intelligent TTS Processor</h4>
-  <p style="margin: 5px 0 0 0;">Advanced JavaScript function with multiple TTS variations and timezone handling</p>
-</div>
+> [!TIP]
+> **Intelligent TTS Processor**  
+> Advanced JavaScript function with multiple TTS variations and timezone handling
 
 **Key Features:**
 
@@ -235,11 +265,9 @@ logger.info(`Alarm triggered: ${timeData.formattedTimes.display}`);
 
 ## ⚙️ **Environment Configuration**
 
-<div style="border: 2px solid #007bff; border-radius: 8px; padding: 20px; background-color: #f8f9ff; margin: 20px 0;">
-
-### **🔧 Required Environment Variable**
-
-Set the `ALARM_CLOCK` environment variable in your Node-RED flow:
+> [!IMPORTANT]
+> **Required Environment Variable**  
+> Set the `ALARM_CLOCK` environment variable in your Node-RED flow
 
 ```json
 {
@@ -254,79 +282,42 @@ Set the `ALARM_CLOCK` environment variable in your Node-RED flow:
 }
 ```
 
-</div>
-
 ### **📋 Configuration Parameters**
 
-<table style="width: 100%; border-collapse: collapse;">
-  <thead>
-    <tr style="background-color: #e9ecef;">
-      <th style="padding: 12px; border: 1px solid #adb5bd; text-align: left;">Parameter</th>
-      <th style="padding: 12px; border: 1px solid #adb5bd; text-align: left;">Description</th>
-      <th style="padding: 12px; border: 1px solid #adb5bd; text-align: left;">Default Value</th>
-      <th style="padding: 12px; border: 1px solid #adb5bd; text-align: left;">Required</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">sonos.entity_id</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd;">Home Assistant Sonos entity ID</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">media_player.bedroom_sonos_amp</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; color: #dc3545;">✓ Yes</td>
-    </tr>
-    <tr style="background-color: #f8f9fa;">
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">sonos.volume</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd;">Audio volume level (0-100)</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">85</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; color: #28a745;">○ No</td>
-    </tr>
-    <tr>
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">timezone</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd;">IANA timezone identifier</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">America/Chicago</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; color: #28a745;">○ No</td>
-    </tr>
-    <tr style="background-color: #f8f9fa;">
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">tts_variations</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd;">Number of TTS message variations</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; font-family: monospace;">5</td>
-      <td style="padding: 10px; border: 1px solid #adb5bd; color: #28a745;">○ No</td>
-    </tr>
-  </tbody>
-</table>
+| Parameter | Description | Default Value | Required |
+|-----------|-------------|---------------|----------|
+| `sonos.entity_id` | Home Assistant Sonos entity ID | `media_player.bedroom_sonos_amp` | ✅ Yes |
+| `sonos.volume` | Audio volume level (0-100) | `85` | ⭕ No |
+| `timezone` | IANA timezone identifier | `America/Chicago` | ⭕ No |
+| `tts_variations` | Number of TTS message variations | `5` | ⭕ No |
 
 ---
 
 ## 🗣️ **TTS Message Variations**
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+The system randomly selects from 5 different wake-up messages to keep the experience natural and engaging:
 
-<div style="background: linear-gradient(135deg, #FFA726, #FB8C00); padding: 15px; border-radius: 10px; color: white;">
-  <h4 style="margin: 0 0 10px 0;">📢 Message Variation 1</h4>
-  <em>"Good morning! The time is [TIME]. This is your scheduled wake up alarm."</em>
-</div>
+> [!NOTE]
+> **Message Variation 1**  
+> *"Good morning! The time is [TIME]. This is your scheduled wake up alarm."*
 
-<div style="background: linear-gradient(135deg, #66BB6A, #4CAF50); padding: 15px; border-radius: 10px; color: white;">
-  <h4 style="margin: 0 0 10px 0;">📢 Message Variation 2</h4>
-  <em>"Wake up! It's [TIME]. Your alarm is now active."</em>
-</div>
+> [!NOTE]
+> **Message Variation 2**  
+> *"Wake up! It's [TIME]. Your alarm is now active."*
 
-<div style="background: linear-gradient(135deg, #42A5F5, #2196F3); padding: 15px; border-radius: 10px; color: white;">
-  <h4 style="margin: 0 0 10px 0;">📢 Message Variation 3</h4>
-  <em>"Good morning! Your [TIME] alarm is going off. Time to start your day."</em>
-</div>
+> [!NOTE]
+> **Message Variation 3**  
+> *"Good morning! Your [TIME] alarm is going off. Time to start your day."*
 
-<div style="background: linear-gradient(135deg, #AB47BC, #9C27B0); padding: 15px; border-radius: 10px; color: white;">
-  <h4 style="margin: 0 0 10px 0;">📢 Message Variation 4</h4>
-  <em>"It's [TIME]. This is your wake up call. Good morning!"</em>
-</div>
+> [!NOTE]
+> **Message Variation 4**  
+> *"It's [TIME]. This is your wake up call. Good morning!"*
 
-</div>
+> [!NOTE]
+> **Message Variation 5**  
+> *"Good morning! The current time is [TIME]. Your alarm has been triggered."*
 
-<div style="background: linear-gradient(135deg, #EF5350, #F44336); padding: 15px; border-radius: 10px; color: white; margin: 10px 0;">
-  <h4 style="margin: 0 0 10px 0;">📢 Message Variation 5</h4>
-  <em>"Good morning! The current time is [TIME]. Your alarm has been triggered."</em>
-</div>
+The `[TIME]` placeholder is automatically replaced with the formatted alarm time in your configured timezone.
 
 ---
 
@@ -398,16 +389,14 @@ Set the `ALARM_CLOCK` environment variable in your Node-RED flow:
 
 ### **📋 Prerequisites**
 
-<div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin: 15px 0;">
-  <strong>⚠️ Required Components:</strong>
-  <ul style="margin: 10px 0;">
-    <li>✅ Node-RED installation</li>
-    <li>✅ Home Assistant with Sonos integration</li>
-    <li>✅ <code>node-red-contrib-cronplus</code> node</li>
-    <li>✅ <code>node-red-contrib-home-assistant-websocket</code> nodes</li>
-    <li>✅ <code>date-fns-tz</code> library</li>
-  </ul>
-</div>
+> [!WARNING]
+> **Required Components**
+>
+> - ✅ Node-RED installation
+> - ✅ Home Assistant with Sonos integration
+> - ✅ `node-red-contrib-cronplus` node
+> - ✅ `node-red-contrib-home-assistant-websocket` nodes
+> - ✅ `date-fns-tz` library
 
 ### **🚀 Quick Setup Steps**
 
@@ -438,9 +427,8 @@ Set the `ALARM_CLOCK` environment variable in your Node-RED flow:
 
 ### **📱 Manual Trigger**
 
-<div style="background: linear-gradient(135deg, #6C5CE7, #A29BFE); padding: 20px; border-radius: 12px; color: white; margin: 20px 0;">
-
-**Inject a test message to simulate cron trigger:**
+> [!TIP]
+> **Inject a test message to simulate cron trigger:**
 
 ```javascript
 {
@@ -454,8 +442,6 @@ Set the `ALARM_CLOCK` environment variable in your Node-RED flow:
   }
 }
 ```
-
-</div>
 
 ### **🔧 Customization Examples**
 
@@ -486,37 +472,12 @@ const customVariations = [
 
 ### **📊 Built-in Tracking Features**
 
-<table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-  <thead>
-    <tr style="background: linear-gradient(135deg, #667eea, #764ba2); color: white;">
-      <th style="padding: 15px; border: none;">Feature</th>
-      <th style="padding: 15px; border: none;">Description</th>
-      <th style="padding: 15px; border: none;">Storage</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="padding: 12px; border: 1px solid #dee2e6; background-color: #f8f9fa;">🕰️ <strong>Alarm History</strong></td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;">Tracks last 10 alarm triggers with timestamps</td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;"><code>context.alarm_history</code></td>
-    </tr>
-    <tr>
-      <td style="padding: 12px; border: 1px solid #dee2e6; background-color: #f8f9fa;">📊 <strong>Alarm Counter</strong></td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;">Total count of triggered alarms</td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;"><code>context.alarm_counter</code></td>
-    </tr>
-    <tr>
-      <td style="padding: 12px; border: 1px solid #dee2e6; background-color: #f8f9fa;">🎯 <strong>Success Tracking</strong></td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;">Monitors successful vs failed alarm processing</td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;"><code>alarm_data.success</code></td>
-    </tr>
-    <tr>
-      <td style="padding: 12px; border: 1px solid #dee2e6; background-color: #f8f9fa;">🗣️ <strong>Message Variations</strong></td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;">Cycles through TTS variations for variety</td>
-      <td style="padding: 12px; border: 1px solid #dee2e6;"><code>tts_data.message_variation</code></td>
-    </tr>
-  </tbody>
-</table>
+| Feature | Description | Storage |
+|---------|-------------|---------|
+| 🕰️ **Alarm History** | Tracks last 10 alarm triggers with timestamps | `context.alarm_history` |
+| 📊 **Alarm Counter** | Total count of triggered alarms | `context.alarm_counter` |
+| 🎯 **Success Tracking** | Monitors successful vs failed alarm processing | `alarm_data.success` |
+| 🗣️ **Message Variations** | Cycles through TTS variations for variety | `tts_data.message_variation` |
 
 ---
 
@@ -524,49 +485,42 @@ const customVariations = [
 
 ### **❗ Common Issues & Solutions**
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+> [!CAUTION]
+> **🔴 No TTS Audio**
+>
+> - Verify Sonos entity ID is correct
+> - Check Home Assistant TTS service
+> - Confirm volume is not set to 0
+> - Test manual TTS call in HA
+> - Check node status indicators
 
-<div style="border: 2px solid #dc3545; border-radius: 8px; padding: 15px; background-color: #f8d7da;">
-  <h4 style="color: #721c24; margin: 0 0 10px 0;">🔴 No TTS Audio</h4>
-  <ul style="color: #721c24; margin: 0;">
-    <li>Verify Sonos entity ID is correct</li>
-    <li>Check Home Assistant TTS service</li>
-    <li>Confirm volume is not set to 0</li>
-    <li>Test manual TTS call in HA</li>
-    <li>Check node status indicators</li>
-  </ul>
-</div>
+> [!WARNING]
+> **🟡 Wrong Time Zone**
+>
+> - Update `timezone` in environment config
+> - Verify IANA timezone format
+> - Check `date-fns-tz` library installation
+> - Test with manual timestamp
 
-<div style="border: 2px solid #ffc107; border-radius: 8px; padding: 15px; background-color: #fff3cd;">
-  <h4 style="color: #856404; margin: 0 0 10px 0;">🟡 Wrong Time Zone</h4>
-  <ul style="color: #856404; margin: 0;">
-    <li>Update <code>timezone</code> in environment config</li>
-    <li>Verify IANA timezone format</li>
-    <li>Check <code>date-fns-tz</code> library installation</li>
-    <li>Test with manual timestamp</li>
-  </ul>
-</div>
+> [!NOTE]
+> **🔵 Environment Errors**
+>
+> - Check JSON syntax in `ALARM_CLOCK` variable
+> - Ensure nested object structure is correct
+> - Verify environment variable accessibility
+> - Review Node-RED debug logs
 
-<div style="border: 2px solid #17a2b8; border-radius: 8px; padding: 15px; background-color: #d1ecf1;">
-  <h4 style="color: #0c5460; margin: 0 0 10px 0;">🔵 Environment Errors</h4>
-  <ul style="color: #0c5460; margin: 0;">
-    <li>Check JSON syntax in <code>ALARM_CLOCK</code> variable</li>
-    <li>Ensure nested object structure is correct</li>
-    <li>Verify environment variable accessibility</li>
-    <li>Review Node-RED debug logs</li>
-  </ul>
-</div>
+> [!TIP]
+> **🟢 Debug Tips**
+>
+> - Enable debug node to monitor data flow
+> - Check Node-RED console for `[Wake Alarm]` logs
+> - Monitor node status colors and messages
+> - Use structured logging output for troubleshooting
+> - Verify cron expressions are valid
+> - Test with simplified TTS messages
 
-<div style="border: 2px solid #28a745; border-radius: 8px; padding: 15px; background-color: #d4edda;">
-  <h4 style="color: #155724; margin: 0 0 10px 0;">🟢 Debug Tips</h4>
-  <ul style="color: #155724; margin: 0;">
-    <li>Enable debug node to monitor data flow</li>
-    <li>Check Node-RED console for <code>[Wake Alarm]</code> logs</li>
-    <li>Monitor node status colors and messages</li>
-    <li>Use structured logging output for troubleshooting</li>
-    <li>Verify cron expressions are valid</li>
-    <li>Test with simplified TTS messages</li>
-  </ul>
+---
 </div>
 
 </div>
@@ -613,17 +567,9 @@ const customVariations = [
 
 ### **🎛️ Professional Customizations**
 
-<div style="background: linear-gradient(45deg, #FF6B6B, #4ECDC4, #45B7D1, #96CEB4, #FFEAA7); background-size: 400% 400%; animation: gradient 15s ease infinite; padding: 20px; border-radius: 15px; color: white; text-align: center; margin: 20px 0;">
-  <h3 style="margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">🚀 Extend Your Alarm System</h3>
-</div>
-
-<style>
-@keyframes gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-</style>
+> [!TIP]
+> **🚀 Extend Your Alarm System**  
+> Take your alarm functionality to the next level with these enhancement ideas
 
 **🌟 Enhancement Ideas:**
 
@@ -638,38 +584,25 @@ const customVariations = [
 
 ## 📄 **License & Credits**
 
-<div style="text-align: center; background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #dee2e6; margin: 20px 0;">
-  <h3 style="margin: 0 0 15px 0;">🏆 Project Information</h3>
-  
-  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0;">
-    <div>
-      <strong>📝 License</strong><br>
-      <span style="color: #666;">MIT License</span>
-    </div>
-    <div>
-      <strong>👤 Author</strong><br>
-      <span style="color: #666;">H2OKing89</span>
-    </div>
-    <div>
-      <strong>🔄 Version</strong><br>
-      <span style="color: #666;">2.0.0 - Professional Node-RED</span>
-    </div>
-  </div>
-  
-  <p style="margin: 15px 0 0 0; color: #666; font-style: italic;">
-    Built with ❤️ for the Node-RED and Home Assistant communities
-  </p>
-</div>
+> [!NOTE]
+> **🏆 Project Information**
+
+| **📝 License** | **👤 Author** | **🔄 Version** |
+|----------------|---------------|----------------|
+| MIT License | H2OKing89 | 2.0.0 - Professional Node-RED |
+
+Built with ❤️ for the Node-RED and Home Assistant communities
 
 ---
 
 <div align="center">
-  <h3>🌟 **Happy Wake-Ups!** 🌟</h3>
-  <p><em>Transform your mornings with intelligent, personalized alarm announcements</em></p>
-  
-  <div style="margin: 20px 0;">
-    <img src="https://img.shields.io/badge/Made%20with-Node--RED-red?style=for-the-badge&logo=nodered" alt="Made with Node-RED">
-    <img src="https://img.shields.io/badge/Powered%20by-Home%20Assistant-blue?style=for-the-badge&logo=home-assistant" alt="Powered by Home Assistant">
-    <img src="https://img.shields.io/badge/Audio%20by-Sonos-black?style=for-the-badge&logo=sonos" alt="Audio by Sonos">
-  </div>
+
+### 🌟 **Happy Wake-Ups!** 🌟
+
+Transform your mornings with intelligent, personalized alarm announcements
+
+[![Made with Node-RED](https://img.shields.io/badge/Made%20with-Node--RED-red?style=for-the-badge&logo=nodered)](https://nodered.org/)
+[![Powered by Home Assistant](https://img.shields.io/badge/Powered%20by-Home%20Assistant-blue?style=for-the-badge&logo=home-assistant)](https://www.home-assistant.io/)
+[![Audio by Sonos](https://img.shields.io/badge/Audio%20by-Sonos-black?style=for-the-badge&logo=sonos)](https://www.sonos.com/)
+
 </div>

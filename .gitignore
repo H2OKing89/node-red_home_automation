@@ -1,4 +1,4 @@
-sync_global_json.py
+# sync_global_json.py
 node-red_global.json
 config/
 config/.env

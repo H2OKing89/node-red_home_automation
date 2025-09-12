@@ -4,7 +4,7 @@
 
 # 🏠 Node-RED Home Automation System
 
-### **🚀 The Ultimate Smart Home Intelligence Platform**
+## **🚀 The Ultimate Smart Home Intelligence Platform**
 
 <img src="https://img.shields.io/badge/Node--RED-8F0000?style=for-the-badge&logo=nodered&logoColor=white" alt="Node-RED">
 <img src="https://img.shields.io/badge/Home_Assistant-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white" alt="Home Assistant">

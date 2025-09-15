@@ -9,8 +9,9 @@ This script processes FreePBX voicemail notifications and formats them for posti
 ### Features
 
 - **Automatic Parsing**: Extracts caller information, duration, date, and mailbox details from voicemail emails
-- **Slack Formatting**: Creates rich Slack messages with blocks, fields, and action buttons
+- **Slack Formatting**: Creates clean Slack messages with blocks and fields
 - **Email Authorization**: Only processes emails from authorized senders
+- **User Mentions**: Automatically mentions specified Slack members
 - **Error Handling**: Graceful error handling with fallback messages
 - **Environment Variables**: Uses configurable Slack channel and member mentions
 
@@ -19,10 +20,14 @@ This script processes FreePBX voicemail notifications and formats them for posti
 Set these in your Node-RED environment or system environment:
 
 ```bash
-SLACK_CHANNEL_VOICEMAIL=your-voicemail-channel-id
-SLACK_MEMBER_BETTY=betty-user-id
-AUTHORIZED_EMAIL=office@ksplbg.com
+SLACK_CHANNEL_VOICEMAIL=C1234567890  # Your Slack channel ID
+SLACK_MEMBER_BETTY=U9876543210      # Betty's Slack user ID for mentions
+AUTHORIZED_EMAIL=office@ksplbg.com   # Authorized email sender
 ```
+
+**Important**: Make sure these environment variables are properly set in your
+Node-RED settings.js file or deployment environment. The script includes fallback
+handling for missing variables.
 
 ### Node-RED Environment Variables
 
@@ -125,6 +130,9 @@ The script outputs a Slack message object in the format expected by the Slack no
   }
 }
 ```
+
+**Note**: The script creates clean, focused messages with caller information and
+automatically mentions the configured Slack member (@SLACK_MEMBER_BETTY).
 
 ### Slack Integration
 

@@ -51,7 +51,7 @@ if (actions.length === 0) {
                 message: "TTS",
                 // This 'data' key is used for TTS parameters. how home assistant expects it. do not rename it.
                 data: {
-                    ttl: 0,
+                    ttl: 300,
                     priority: "high",
                     media_stream: "alarm_stream_max",
                     tts_text: tts

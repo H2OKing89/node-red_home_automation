@@ -54,13 +54,13 @@ const androidPayload = (action) => ({
         action,
         data: {
             message: notificationMessage,
-            title: '🚨\u200B<b><span style="color: red">"ALARM TRIGGERED"</span></b>🚨',
+            title: '🚨\u200B<b><span style="color: red">ALARM TRIGGERED</span></b>🚨',
             data: {
                 priority: 'high',
-                sticky: 'true',
+                sticky: true,
                 clickAction: '/lovelace-kiosk/Alarm',
                 timeout: 600,
-                ttl: 0,
+                ttl: 300,
                 tag: 'alarmo_armed_status',
                 persistent: true,
                 color: '#ffff05',

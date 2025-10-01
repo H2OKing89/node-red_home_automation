@@ -19,14 +19,14 @@
 </p>
 
 <p>
-  <a href="#-features">Features</a> •
-  <a href="#-alarm-states--notifications">States</a> •
-  <a href="#%EF%B8%8F-file-structure">Files</a> •
-  <a href="#-configuration">Config</a> •
-  <a href="#-node-red-integration">Integration</a> •
-  <a href="#-usage-examples">Examples</a> •
-  <a href="#-development">Development</a> •
-  <a href="#-support">Support</a>
+  <a href="#features">Features</a> •
+  <a href="#alarm-states--notifications">States</a> •
+  <a href="#file-structure">Files</a> •
+  <a href="#configuration">Config</a> •
+  <a href="#node-red-integration">Integration</a> •
+  <a href="#usage-examples">Examples</a> •
+  <a href="#development">Development</a> •
+  <a href="#support">Support</a>
 </p>
 
 </div>
@@ -76,7 +76,7 @@
 - ✅ Error handling with comprehensive logging  
 - ✅ State validation & graceful failures  
 - ✅ Duplicate prevention (<em>planned</em>)  
-- ✅ Performance-conscious design
+- ✅ Performance-optimized
 
 </td>
 </tr>
@@ -115,8 +115,7 @@ flowchart TD
   D --> J[TTS (home users)]
 
   E & F & G & H & I & J --> K[Home Assistant Services]
-````
-
+```
 </details>
 
 ---
@@ -152,47 +151,43 @@ notify/
 ## ⚙️ Configuration
 
 ### 🌍 Environment Variables
-
-Configure via your `.env` or Node-RED env settings.
+Configure via your `.env` or Node-RED environment settings.  
+<sub><em>Note: In Function nodes, retrieve with <code>env.get("KEY")</code> and <code>JSON.parse</code> if the value is JSON.</em></sub>
 
 <details>
 <summary><b>🔧 Device Mapping (Click to expand)</b></summary>
 
-```bash
-# Android Device Mapping
-NOTIFY_MAP_ANDROID={
-  "person.quentin": [
-    "notify.mobile_app_quentin_s25u",
-    "notify.mobile_app_quentin_g7u"
-  ],
-  "person.alana": "notify.mobile_app_alana_s22u",
-  "person.betty": "notify.mobile_app_betty_s24u"
-}
-
-# iOS Device Mapping
-NOTIFY_MAP_IOS={
-  "person.quentin": "notify.mobile_app_quentin_ipad_pro_13",
-  "garage_notify": "notify.mobile_app_quentin_ipad_pro_13"
+```json
+{
+  "NOTIFY_MAP_ANDROID": {
+    "person.quentin": [
+      "notify.mobile_app_quentin_s25u",
+      "notify.mobile_app_quentin_g7u"
+    ],
+    "person.alana": "notify.mobile_app_alana_s22u",
+    "person.betty": "notify.mobile_app_betty_s24u"
+  },
+  "NOTIFY_MAP_IOS": {
+    "person.quentin": "notify.mobile_app_quentin_ipad_pro_13",
+    "garage_notify": "notify.mobile_app_quentin_ipad_pro_13"
+  }
 }
 ```
-
 </details>
 
 <details>
 <summary><b>💬 Message Templates (Click to expand)</b></summary>
 
-```bash
-# Alarm State Messages
-ALARM_TRIGGERED_PUSH="🚨 SECURITY SYSTEM TRIGGERED! Check immediately!"
-ALARM_TRIGGERED_TTS="Attention! The security system has been triggered!"
-
-ALARM_PENDING_PUSH="⏰ DISARM THE ALARM NOW"
-ALARM_PENDING_TTS="The security system is armed. Please disarm the alarm."
-
-ALARM_DISABLED_PUSH="✅ Security system disabled. Welcome home!"
-ALARM_DISABLED_TTS="The security system has been disabled. You can relax now."
+```json
+{
+  "ALARM_TRIGGERED_PUSH": "🚨 SECURITY SYSTEM TRIGGERED! Check immediately!",
+  "ALARM_TRIGGERED_TTS": "Attention! The security system has been triggered!",
+  "ALARM_PENDING_PUSH": "⏰ DISARM THE ALARM NOW",
+  "ALARM_PENDING_TTS": "The security system is armed. Please disarm the alarm.",
+  "ALARM_DISABLED_PUSH": "✅ Security system disabled. Welcome home!",
+  "ALARM_DISABLED_TTS": "The security system has been disabled. You can relax now."
+}
 ```
-
 </details>
 
 ---
@@ -256,7 +251,6 @@ data: {
   color: "#ff0000"
 }
 ```
-
 </details>
 
 <details>
@@ -274,7 +268,6 @@ data: {
   }
 }
 ```
-
 </details>
 
 ---
@@ -310,10 +303,9 @@ data: {
 
 ### 🧪 Testing Your Changes
 
-1. **Copy** a script into a Node-RED Function node
-2. **Configure** environment variables in flow settings
+1. **Copy** a script into a Node-RED Function node  
+2. **Configure** environment variables in flow settings  
 3. **Test** with sample input message:
-
    ```javascript
    {
      "data": {
@@ -326,10 +318,10 @@ data: {
 
 ### 📝 Best Practices
 
-- ✅ Always validate `msg.data` exists
-- ✅ Use `try/catch` for error handling
-- ✅ Log meaningful debug info
-- ✅ Follow JSDoc comment standards
+- ✅ Always validate `msg.data` exists  
+- ✅ Use `try/catch` for error handling  
+- ✅ Log meaningful debug info  
+- ✅ Follow JSDoc comment standards  
 - ✅ Test on both Android and iOS
 
 ---
@@ -349,7 +341,7 @@ Open an issue with repro steps
 <td align="center" width="33%">
 
 **💡 Have an Idea?**<br>
-Check the roadmap or suggest features
+Open a feature request
 
 </td>
 <td align="center" width="33%">

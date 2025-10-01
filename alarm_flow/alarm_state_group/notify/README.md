@@ -101,20 +101,41 @@
 
 ```mermaid
 flowchart TD
-  A[State Change / Alarm Event] -->|pending| B[Function: pending_*]
-  A -->|triggered| C[Function: triggered_*]
-  A -->|disabled| D[Function: disabled_*]
+  %% Nodes (labels quoted for safety on GitHub)
+  A["State Change / Alarm Event"]
+  B["Function: pending_*"]
+  C["Function: triggered_*"]
+  D["Function: disabled_*"]
 
-  B --> E[Push (home users)]
-  B --> F[TTS (home users)]
+  E["Push (home users)"]
+  F["TTS (home users)"]
+  G["Push (all users)"]
+  H["TTS (all users)"]
+  I["Push (home users)"]
+  J["TTS (home users)"]
 
-  C --> G[Push (all users)]
-  C --> H[TTS (all users)]
+  K["Home Assistant Services"]
 
-  D --> I[Push (home users)]
-  D --> J[TTS (home users)]
+  %% Edges
+  A -- pending --> B
+  A -- triggered --> C
+  A -- disabled --> D
 
-  E & F & G & H & I & J --> K[Home Assistant Services]
+  B --> E
+  B --> F
+
+  C --> G
+  C --> H
+
+  D --> I
+  D --> J
+
+  E --> K
+  F --> K
+  G --> K
+  H --> K
+  I --> K
+  J --> K
 ```
 </details>
 

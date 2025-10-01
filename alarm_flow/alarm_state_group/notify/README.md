@@ -25,7 +25,6 @@
   <a href="#-configuration">Config</a> •
   <a href="#-node-red-integration">Integration</a> •
   <a href="#-usage-examples">Examples</a> •
-  <a href="#-roadmap--improvements">Roadmap</a> •
   <a href="#-development">Development</a> •
   <a href="#-support">Support</a>
 </p>
@@ -307,21 +306,6 @@ data: {
 
 ---
 
-## 🔮 Roadmap & Improvements
-
-<div align="center">
-
-|                     🎯 **Phase 1**                    |                        🚀 **Phase 2**                       |                           ✨ **Phase 3**                           |
-| :---------------------------------------------------: | :---------------------------------------------------------: | :---------------------------------------------------------------: |
-|                  Security & Stability                 |                         Reliability                         |                            Nice-to-Have                           |
-| • HTML escaping<br>• Cooldown system<br>• Quiet hours | • Enhanced parsing<br>• Data type fixes<br>• Message limits | • Config externalization<br>• Enhanced tagging<br>• Observability |
-
-</div>
-
-See **[IMPROVEMENT_ROADMAP.md](./IMPROVEMENT_ROADMAP.md)** for detailed plans.
-
----
-
 ## 🔧 Development
 
 ### 🧪 Testing Your Changes
@@ -386,4 +370,3 @@ PRs welcome — follow coding standards
 <strong>Built for reliable home automation • Tested in production • Continuously improved</strong>
 
 </div>
-```

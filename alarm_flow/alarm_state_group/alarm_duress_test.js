@@ -1,11 +1,11 @@
 /****************************************************
  * Script Name: Duress Alarm Test Message Generator
  * Author: Quentin King
- * Version: 1.6.11
+ * Version: 1.7.0
  ****************************************************/
 
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.6.11';
+const SCRIPT_VERSION = '1.7.0';
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 const { formatInTimeZone } = dateFnsTz;
 const TIME_ZONE = 'America/Chicago';
@@ -55,12 +55,23 @@ msg = msg || {};
 
 /**
  * Build the duress test message from JSON fields.
- * @param {Object} obj - Test message object.
+ * @param {Object} obj - Test message object with meta, message, law_enforcement, user, and extras.
  * @param {string} ts - Timestamp string.
  * @returns {string}
  */
 function buildTestMessage(obj, ts) {
-    return `[TEST] ${obj.intro}\n\n${obj.law_enforcement}\n${obj.name}: ${obj.address}, ${obj.city}, ${obj.state}\nPhone: ${obj.phone}\n\n${obj.scene_msg} ${obj.passphrase}\n\n${ts}`;
+    const { message, law_enforcement, user } = obj;
+    
+    // Build law enforcement info
+    const lawEnforcementInfo = `${law_enforcement.name}\n${law_enforcement.city}, ${law_enforcement.state}\nPhone: ${law_enforcement.phone}${law_enforcement.message ? `\n${law_enforcement.message}` : ''}`;
+    
+    // Build user info
+    const userInfo = `${user.name}: ${user.address}, ${user.city}, ${user.state} ${user.zip}\nPhone: ${user.phone}`;
+    
+    // Build scene message with passphrase
+    const sceneInfo = `${message.scene_msg}\nPassphrase: ${message.passphrase}`;
+    
+    return `[TEST] ${message.intro}\n\n${lawEnforcementInfo}\n\n${userInfo}\n\n${sceneInfo}\n\n${ts}`;
 }
 
 /**

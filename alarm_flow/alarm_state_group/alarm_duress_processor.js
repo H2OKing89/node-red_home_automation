@@ -1,12 +1,12 @@
 /****************************************************
  * Script Name: Duress Alarm Code Alert Generator
  * Author: Quentin King
- * Version: 1.6.11
+ * Version: 1.7.0
  ****************************************************/
 
 // Toggle all logging on or off
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.6.11';
+const SCRIPT_VERSION = '1.7.0';
 // Unique ID per execution for traceability
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 
@@ -63,12 +63,23 @@ msg = msg || {};
 
 /**
  * Build the duress alert message from JSON fields.
- * @param {Object} obj - Duress message object.
+ * @param {Object} obj - Duress message object with meta, message, law_enforcement, user, and extras.
  * @param {string} ts - Timestamp string.
  * @returns {string}
  */
 function buildDuressMessage(obj, ts) {
-    return `${obj.intro}\n\n${obj.law_enforcement}\n${obj.name}: ${obj.address}, ${obj.city}, ${obj.state}\nPhone: ${obj.phone}\n\n${obj.scene_msg} ${obj.passphrase}\n\n${ts}`;
+    const { message, law_enforcement, user } = obj;
+    
+    // Build law enforcement info
+    const lawEnforcementInfo = `${law_enforcement.name}\n${law_enforcement.city}, ${law_enforcement.state}\nPhone: ${law_enforcement.phone}${law_enforcement.message ? `\n${law_enforcement.message}` : ''}`;
+    
+    // Build user info
+    const userInfo = `${user.name}: ${user.address}, ${user.city}, ${user.state} ${user.zip}\nPhone: ${user.phone}`;
+    
+    // Build scene message with passphrase
+    const sceneInfo = `${message.scene_msg}\nPassphrase: ${message.passphrase}`;
+    
+    return `${message.intro}\n\n${lawEnforcementInfo}\n\n${userInfo}\n\n${sceneInfo}\n\n${ts}`;
 }
 
 /**

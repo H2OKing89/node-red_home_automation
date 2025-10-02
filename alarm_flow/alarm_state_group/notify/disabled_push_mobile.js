@@ -20,14 +20,17 @@ try {
     const pushMessage = env.get("ALARM_DISABLED_PUSH");
 
     if (!msg.data) {
+        node.status({ fill: "red", shape: "ring", text: "Error: msg.data undefined" });
         node.error('msg.data is undefined', msg);
+        node.done();
         return null;
     }
 
 const { entity_id: entityId, state } = msg.data;
 
 if (state !== "home") {
-    node.warn(`${entityId} is not home, skipping PUSH.`);
+    node.log(`${entityId} is not home, skipping PUSH.`);
+    node.done();
     return null;
 }
 
@@ -41,11 +44,12 @@ const iosActions = notifyMapIOS && notifyMapIOS[entityId]
 const push = msg.push_text || pushMessage;
 
 if (androidActions.length === 0 && iosActions.length === 0) {
-    node.warn(`No notify actions found for ${entityId}`);
+    node.log(`No notify actions found for ${entityId}`);
+    node.done();
     return null;
 }
 
-
+    node.status({ fill: "blue", shape: "dot", text: "Building notifications..." });
 const alarmMessage = msg.alarm && msg.alarm.message ? `<b><span style="color: green">${msg.alarm.message}</span></b>` : '';
 const notificationMessage = `\u200B<b><span style="color: blue">${push}</span></b>` + (alarmMessage ? '\n\n' + alarmMessage : '');
 
@@ -105,12 +109,16 @@ const iosPayload = (action) => ({
     androidActions.forEach(action => outMsgs.push(androidPayload(action)));
     iosActions.forEach(action => outMsgs.push(iosPayload(action)));
 
+    node.status({ fill: "green", shape: "dot", text: `Sent to ${outMsgs.length} devices` });
     node.log(`Building notification for entity: ${entityId} (${androidActions.length} Android, ${iosActions.length} iOS)`);
     
+    node.done();
     return [outMsgs];
 
 } catch (error) {
-    node.error(`Error processing notification: ${error.message}`, msg);
+    node.status({ fill: "red", shape: "ring", text: "Error: " + error.message });
+    node.error(error, msg);
+    node.done();
     return null;
 }
 

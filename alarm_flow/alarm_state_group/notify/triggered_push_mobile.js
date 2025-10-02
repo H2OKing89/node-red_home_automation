@@ -21,7 +21,9 @@ try {
     const pushMessage = env.get("ALARM_TRIGGERED_PUSH");
 
     if (!msg.data) {
+        node.status({ fill: "red", shape: "ring", text: "Error: msg.data undefined" });
         node.error('msg.data is undefined', msg);
+        node.done();
         return null;
     }
 
@@ -37,11 +39,14 @@ const iosActions = notifyMapIOS && notifyMapIOS[entityId]
 const push = msg.push_text || pushMessage;
 
 if (androidActions.length === 0 && iosActions.length === 0) {
-    node.warn(`No notify actions found for ${entityId}`);
+    node.log(`No notify actions found for ${entityId}`);
+    node.done();
     return null;
 }
 
-const alarmMessage = msg.alarm && msg.alarm.message ? `<b><span style=\"color: red\">${msg.alarm.message}</span></b>` : '';
+    node.status({ fill: "blue", shape: "dot", text: "Building notifications..." });
+    
+    const alarmMessage = msg.alarm && msg.alarm.message ? `<b><span style=\"color: red\">${msg.alarm.message}</span></b>` : '';
 const notificationMessage = `\u200B<b><span style="color: red">${push}</span></b>` + (alarmMessage ? '\n\n' + alarmMessage : '');
 
 // Remove HTML for iOS
@@ -101,11 +106,15 @@ const iosPayload = (action) => ({
     androidActions.forEach(action => outMsgs.push(androidPayload(action)));
     iosActions.forEach(action => outMsgs.push(iosPayload(action)));
 
+    node.status({ fill: "red", shape: "dot", text: `🚨 TRIGGERED - Sent to ${outMsgs.length} devices` });
     node.log(`Building notification for entity: ${entityId} (${androidActions.length} Android, ${iosActions.length} iOS) - TRIGGERED ALARM`);
     
+    node.done();
     return [outMsgs];
 
 } catch (error) {
-    node.error(`Error processing notification: ${error.message}`, msg);
+    node.status({ fill: "red", shape: "ring", text: "Error: " + error.message });
+    node.error(error, msg);
+    node.done();
     return null;
 }

@@ -9,12 +9,9 @@
  * @param {string} msg.data.state - Person's current state (home/not_home)
  * @param {string} [msg.tts_text] - Optional override for TTS message text
  * @returns {Array} Array of TTS messages for configured devices
- * @version 1.1.0
  */
 
-(async () => {
 try {
-    node.status({ fill: "blue", shape: "dot", text: "Building TRIGGERED TTS..." });
     const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
     const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
     const ttsMessage = env.get("ALARM_TRIGGERED_TTS");
@@ -45,13 +42,12 @@ const actions = notifyMapAndroid[entityId]
 const tts = msg.tts_text || ttsMessage;
 
 if (actions.length === 0) {
-    node.status({ fill: "yellow", shape: "ring", text: `No actions for ${entityId}` });
-    node.warn(`No notify actions found for ${entityId}`);
+    node.log(`No notify actions found for ${entityId}`);
     node.done();
     return null;
 }
 
-    // Home Assistant message format
+    node.status({ fill: "blue", shape: "dot", text: "Building TTS..." });    // Home Assistant message format
     // Build a payload for each device
     const outMsgs = actions.map(action => ({
         payload: {
@@ -69,19 +65,7 @@ if (actions.length === 0) {
         }
     }));
 
-    // Store notification history in context
-    const history = node.context().get('notification_history') || [];
-    history.push({
-        timestamp: new Date().toISOString(),
-        entity: entityId,
-        type: 'tts',
-        state: 'triggered',
-        recipients: actions.length
-    });
-    if (history.length > 50) history.shift();
-    node.context().set('notification_history', history);
-
-    node.status({ fill: "red", shape: "dot", text: `🚨 TRIGGERED - Sent to ${actions.length} devices` });
+    node.status({ fill: "red", shape: "dot", text: `🚨 TRIGGERED - TTS sent to ${actions.length} devices` });
     node.log(`Building TTS notification for entity: ${entityId} (${actions.length} devices) - TRIGGERED ALARM`);
     
     node.done();
@@ -93,4 +77,3 @@ if (actions.length === 0) {
     node.done();
     return null;
 }
-})();

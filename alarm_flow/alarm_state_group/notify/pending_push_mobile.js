@@ -50,7 +50,9 @@ if (androidActions.length === 0 && iosActions.length === 0) {
     return null;
 }
 
-    node.status({ fill: "blue", shape: "dot", text: "Building notifications..." });const alarmMessage = msg.alarm && msg.alarm.message ? `<b><span style=\"color: red\">${msg.alarm.message}</span></b>` : '';
+    node.status({ fill: "blue", shape: "dot", text: "Building notifications..." });
+    
+    const alarmMessage = msg.alarm && msg.alarm.message ? `<b><span style=\"color: red\">${msg.alarm.message}</span></b>` : '';
 const notificationMessage = `\u200B<b><span style="color: blue">${push}</span></b>` + (alarmMessage ? '\n\n' + alarmMessage : '');
 
 // Remove HTML for iOS

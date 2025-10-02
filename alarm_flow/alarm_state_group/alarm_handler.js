@@ -3,15 +3,34 @@
  * Platform: Node-RED
  * Flow: House Alarm
  * Group: Comprehensive Alarm Management, Notifications, and Emergency Handling
- * Date: 2024-09-02 (Updated 2025-05-30)
- * Version: 1.3.1 
- * 1.3.1 change_log: fix
- * - Updated knownUsers list to include full names and added comment about global context.
- * - Added null checking: Before trying to access outputs[1], the code now checks if outputs is not null.
+ * Date: 2024-09-02 (Updated 2025-10-01)
+ * Version: 1.4.0
+ * 1.4.0 change_log:
+ * - Added node.status() updates for visual feedback
+ * - Improved error handling with node.error(error, msg) for Catch node support
+ * - Added node.done() for proper async completion tracking
+ * - Added context storage for alarm state history tracking
+ * - Added LOGGING_ENABLED flag for consistent logging
+ * - Simplified logging approach to match other alarm scripts
  *
  * Adds support for Google Home/Nest speakers, alongside Sonos, for TTS announcements.
  *
  */
+
+const LOGGING_ENABLED = true;
+const SCRIPT_VERSION = '1.4.0';
+
+/**
+ * Simple logging function
+ * @param {string} message - Content to log
+ * @param {string} level - Severity level (info, warn, error)
+ */
+function log(message, level = "info") {
+    if (!LOGGING_ENABLED) return;
+    if (level === "error") node.error(message);
+    else if (level === "warn") node.warn(message);
+    else node.log(message);
+}
 
 // --- Speaker & Volume Configuration ---
 const config = {
@@ -45,7 +64,7 @@ if (!PUSHOVER_USER) missingConfig.push('PUSHOVER_USER');
 if (!axios) missingConfig.push('axios');
 if (missingConfig.length > 0) {
     const warningMsg = `Missing configuration: ${missingConfig.join(', ')}. Disabling Pushover notifications.`;
-    node.warn(warningMsg);
+    log(warningMsg, 'warn');
     PUSHOVER_ENABLED = false;
 }
 
@@ -64,18 +83,20 @@ async function sendPushoverNotification(message, title = 'Error Notification') {
     };
     try {
         const response = await axios.post('https://api.pushover.net/1/messages.json', pushoverPayload);
-        if (response.status === 200) node.log('Pushover notification sent successfully.');
-        else node.error(`Failed to send Pushover notification. Status code: ${response.status}`);
+        if (response.status === 200) log('Pushover notification sent successfully.');
+        else log(`Failed to send Pushover notification. Status code: ${response.status}`, 'error');
     } catch (error) {
-        node.error(`Error sending Pushover notification: ${error.message}`);
+        log(`Error sending Pushover notification: ${error.message}`, 'error');
     }
 }
 
-async function handleError(error, context) {
-    node.error(`Error: ${error.message}`);
-    if (context) node.error(`Context: ${JSON.stringify(context)}`);
+async function handleError(error, context, msg) {
+    log(`Error: ${error.message}`, 'error');
+    if (context) log(`Context: ${JSON.stringify(context)}`, 'error');
     await sendPushoverNotification(`Error: ${error.message}\nContext: ${JSON.stringify(context)}`);
     node.status({ fill: 'red', shape: 'ring', text: error.message });
+    // Trigger catch node with proper error handling
+    if (msg) node.error(error, msg);
 }
 
 // --- Load Global Configurations ---
@@ -87,7 +108,7 @@ const knownUsers = Array.from(new Set([
     .map(u => u.full_name.toLowerCase()),
   'system' // Always allow 'system' as a valid user for automations
 ]));
-node.debug(`Loaded knownUsers from user-whitelist: ${JSON.stringify(knownUsers)}`);
+log(`Loaded knownUsers from user-whitelist: ${JSON.stringify(knownUsers)}`);
 
 // Sensor mappings remain unchanged
 const sensorMappings = global.get('sensorMappings.file') ?? {
@@ -101,7 +122,7 @@ const sensorMappings = global.get('sensorMappings.file') ?? {
     'binary_sensor.west_garage_entry_door': 'west garage door',
     'binary_sensor.g5_flex_north_garage_person_detected': 'north garage'
 };
-node.debug(`Loaded sensorMappings: ${JSON.stringify(sensorMappings)}`);
+log(`Loaded sensorMappings: ${JSON.stringify(sensorMappings)}`);
 
 // --- Date Formatter ---
 // Access dateFnsTz directly (no require needed, must be set up in Node-RED function node)
@@ -114,7 +135,7 @@ const TIME_ZONE = 'America/Chicago';
  */
 function getFormattedTimes(date) {
     if (typeof formatInTimeZone !== 'function') {
-        node.warn('[alarm_handler] date-fns-tz not available in global context. Returning ISO string.');
+        log('date-fns-tz not available in global context. Returning ISO string.', 'warn');
         const fallback = date.toISOString();
         return { formattedTimePush: fallback, formattedTimeTTS: fallback };
     }
@@ -283,17 +304,40 @@ const stateHandlers = {
 // --- Main Async Function ---
 async function main(msg) {
     try {
+        // Update node status to show processing
+        node.status({ fill: "yellow", shape: "dot", text: "Processing alarm state..." });
+        
         const currentTime = new Date();
         const { formattedTimePush, formattedTimeTTS } = getFormattedTimes(currentTime);
         const { new_state: { state } } = msg.data.event;
+        
+        log(`Processing alarm state: ${state}`);
+        
         if (state in stateHandlers) {
             // Pass both formatted times to handlers that need them
             const outputs = stateHandlers[state](msg, formattedTimePush, formattedTimeTTS);
             // Add null check for outputs before proceeding
             if (!outputs) {
-                node.warn(`State handler for '${state}' returned null. Skipping TTS processing.`);
+                log(`State handler for '${state}' returned null. Skipping TTS processing.`, 'warn');
+                node.status({ fill: "yellow", shape: "ring", text: `${state} - no output` });
+                node.done();
                 return null;
             }
+            
+            // Update node status to show successful processing
+            node.status({ fill: "green", shape: "dot", text: `${state} processed` });
+            
+            // Track alarm state changes in context
+            const stateHistory = context.get('alarm_state_history') || [];
+            stateHistory.push({
+                timestamp: currentTime.toISOString(),
+                state: state,
+                changed_by: msg.data.event.new_state?.attributes?.changed_by || 'unknown'
+            });
+            // Keep only last 50 state changes
+            if (stateHistory.length > 50) stateHistory.shift();
+            context.set('alarm_state_history', stateHistory);
+            
             // If TTS (outputs[1]) is present and is an array, we need to send each element separately, respecting googleDelay
             if (outputs[1] && Array.isArray(outputs[1])) {
                 // outputs[1][0]: Sonos, outputs[1][1]: Google volume, outputs[1][2]: Google TTS
@@ -304,14 +348,20 @@ async function main(msg) {
                 // Remove tts from array, set to null to avoid sending as a batch
                 outputs[1] = null;
             }
+            
+            // Signal async completion
+            node.done();
             return outputs;
         } else {
-            node.warn(`Unhandled alarm state: ${state}. Please review the system.`);
+            log(`Unhandled alarm state: ${state}. Please review the system.`, 'warn');
+            node.status({ fill: "yellow", shape: "ring", text: `Unhandled: ${state}` });
+            node.done();
             return null;
         }
     } catch (error) {
         const state = msg?.data?.event?.new_state?.state;
-        await handleError(error, { state, msg });
+        await handleError(error, { state, msg }, msg);
+        node.done();
         return null;
     }
 }

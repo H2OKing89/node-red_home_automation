@@ -84,7 +84,16 @@ log(`Received msg: ${JSON.stringify(msg)}`);
 if (typeof msg !== 'object' || !msg.data || !msg.data.event) {
   log('Malformed msg object', 'error');
   node.status({ fill: "red", shape: "ring", text: "Invalid message structure" });
-  node.error(new Error('Invalid msg object'), msg);
+  node.error(
+    new Error(
+      `Invalid msg object: expected structure { data: { event: ... } }. ` +
+      `Received: ${JSON.stringify({
+        hasData: !!msg.data,
+        hasEvent: !!(msg.data && msg.data.event)
+      })}`
+    ),
+    msg
+  );
   return [null, null, msg];  // Output 3: treat as unknown
 }
 
@@ -116,7 +125,8 @@ log(`knownUsers.length=${knownUsers.length}`);
 if (knownUsers.length === 0) {
   log('No known users configured', 'warn');
   node.status({ fill: "yellow", shape: "ring", text: "No known users" });
-  node.error(new Error('Known users list empty'), msg);
+  // Warn only - this is a configuration issue, not a runtime error
+  node.warn('Known users list is empty. Please populate user-whitelist in global context.');
   // Clone msg to avoid mutating original, set payload to error notice
   const errMsg = { ...msg, payload: 'Known users list is empty. Please populate it.' };
   return [null, null, errMsg];  // Output 3: config issue
@@ -128,7 +138,8 @@ try {
   if (!validateInputs(userWhoChanged, alarmState)) {
     log(`Unknown or invalid user: ${userWhoChanged}`, 'warn');
     node.status({ fill: "yellow", shape: "ring", text: `Unknown: ${userWhoChanged}` });
-    node.error(new Error(`Invalid/unknown user: ${userWhoChanged}`), msg);
+    // Warn only - unauthorized access attempts are expected behavior, not critical errors
+    node.warn(`Invalid/unknown user attempted access: ${userWhoChanged}`);
     
     // Track unknown user attempts in context
     const unknownAttempts = context.get('unknown_attempts') || [];

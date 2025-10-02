@@ -1,7 +1,7 @@
 /****************************************************
  * Alarm State Router
  * Author: Quentin King
- * Version: 1.3.8
+ * Version: 1.4.0
  *
  * Description:
  * this function node is the first node in the flow
@@ -14,32 +14,19 @@
  * - Output 3: Unknown/invalid users or empty knownUsers (non-duress).
  ****************************************************/
 
-// Configuration Flags: toggle overall logging and output destination
-const LOGGING_ENABLED = true;     // Master switch for logMessage
-const LOG_LEVEL = 'DEBUG';  // Minimum level to log (DEBUG, INFO, WARN, ERROR)
-const LOG_TO_CONSOLE = false;   // If true, use node.log(); otherwise use node.warn()
-
-// Define log levels once to avoid recreating the array on each call
-const LOG_LEVELS = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-
-// Initial debug message when Node-RED loads this function
-node.log('[DEBUG] Initializing Alarm State Router');
+const LOGGING_ENABLED = true;
+const SCRIPT_VERSION = '1.4.0';
 
 /**
- * logMessage: Handles conditional logging based on configured level.
- * @param {string} level - Severity level of the message
+ * Simple logging function
  * @param {string} message - Content to log
+ * @param {string} level - Severity level (info, warn, error)
  */
-function logMessage(level, message) {
-  if (!LOGGING_ENABLED) return;  // Skip all logging if disabled
-  const currentIdx = LOG_LEVELS.indexOf(LOG_LEVEL);
-  const msgIdx = LOG_LEVELS.indexOf(level);
-  // Only log if level is valid and meets or exceeds the configured threshold
-  if (msgIdx < 0 || msgIdx < currentIdx) return;
-  const timestamp = new Date().toISOString();
-  const line = `[${timestamp}] [${level}] ${message}`;
-  // Choose console or debug node based on LOG_TO_CONSOLE
-  LOG_TO_CONSOLE ? node.log(line) : node.warn(line);
+function log(message, level = "info") {
+  if (!LOGGING_ENABLED) return;
+  if (level === "error") node.error(message);
+  else if (level === "warn") node.warn(message);
+  else node.log(message);
 }
 
 // Load enabled user full_names from user-whitelist in global context
@@ -50,7 +37,7 @@ const knownUsers = Array.from(new Set([
     .map(u => u.full_name.toLowerCase()),
   'system' // Always allow 'System' as a valid user for automations
 ]));
-node.log(`[DEBUG] knownUsers loaded from user-whitelist (+system): ${JSON.stringify(knownUsers)}`);
+log(`knownUsers loaded from user-whitelist (+system): ${JSON.stringify(knownUsers)}`);
 
 /**
  * isValidStringOrNull: Ensures input is either a non-empty string or null.
@@ -71,48 +58,65 @@ function isValidStringOrNull(value) {
 function validateInputs(user, state) {
   const stateValid = isValidStringOrNull(state);
   const userValid = (user === null) || knownUsers.includes((user || '').toLowerCase());
-  node.log(`[DEBUG] validateInputs(stateValid=${stateValid}, userValid=${userValid})`);
+  log(`validateInputs(stateValid=${stateValid}, userValid=${userValid})`);
   return stateValid && userValid;
 }
 
 /**
  * routeNormal: Handles non-DURESS routing (Output 2).
  * @param {string|null} user - The triggering user or null for system
+ * @param {string|null} state - The alarm state
  * @param {object} msg - The incoming message object
  * @returns {Array} - Node-RED outputs [null, msg, null]
  */
-function routeNormal(user, msg) {
-  node.log(`[DEBUG] routeNormal invoked for user=${user}`);
-  logMessage('INFO', `Routing to Output 2 (Normal) - User: ${user || 'Home Assistant'}`);
+function routeNormal(user, state, msg) {
+  log(`routeNormal invoked for user=${user}`);
+  log(`Routing to Output 2 (Normal) - User: ${user || 'Home Assistant'}, State: ${state}`);
+  
+  // Update node status to show normal routing
+  node.status({ fill: "blue", shape: "dot", text: `${state} by ${user || 'System'}` });
+  
   return [null, msg, null];
 }
 
 // Top-level guard: ensure msg is an object with expected structure
-node.log(`[DEBUG] Received msg: ${JSON.stringify(msg)}`);
+log(`Received msg: ${JSON.stringify(msg)}`);
 if (typeof msg !== 'object' || !msg.data || !msg.data.event) {
-  node.log('[ERROR] Malformed msg object');
-  logMessage('ERROR', 'Invalid msg object; routing to Output 3.');
+  log('Malformed msg object', 'error');
+  node.status({ fill: "red", shape: "ring", text: "Invalid message structure" });
+  node.error(new Error('Invalid msg object'), msg);
   return [null, null, msg];  // Output 3: treat as unknown
 }
 
 // Extract the 'changed_by' attribute and new state from the payload
 const userWhoChanged = msg.data.event.new_state?.attributes?.changed_by;
 const alarmState = msg.data.event.new_state?.state;
-node.log(`[DEBUG] Extracted user=${userWhoChanged}, state=${alarmState}`);
+log(`Extracted user=${userWhoChanged}, state=${alarmState}`);
 
 // 1. DURESS override: Immediate priority to Output 1
-node.log('[DEBUG] Checking for duress override');
+log('Checking for duress override');
 if (userWhoChanged === 'DURESS') {
-  node.log('[INFO] Duress detected');
-  logMessage('INFO', 'Duress detected. Routing to Output 1.');
+  log('🚨 DURESS DETECTED!', 'warn');
+  node.status({ fill: "red", shape: "dot", text: "DURESS ALERT" });
+  
+  // Track duress activations in context
+  const duressRoutes = context.get('duress_routes') || [];
+  duressRoutes.push({
+    timestamp: new Date().toISOString(),
+    state: alarmState
+  });
+  if (duressRoutes.length > 10) duressRoutes.shift();
+  context.set('duress_routes', duressRoutes);
+  
   return [msg, null, null];  // Output 1: Duress
 }
 
 // 2. Empty knownUsers fallback: treat as configuration error
-node.log(`[DEBUG] knownUsers.length=${knownUsers.length}`);
+log(`knownUsers.length=${knownUsers.length}`);
 if (knownUsers.length === 0) {
-  node.log('[WARN] No known users configured');
-  logMessage('WARN', 'Known users list empty. Routing to Output 3.');
+  log('No known users configured', 'warn');
+  node.status({ fill: "yellow", shape: "ring", text: "No known users" });
+  node.error(new Error('Known users list empty'), msg);
   // Clone msg to avoid mutating original, set payload to error notice
   const errMsg = { ...msg, payload: 'Known users list is empty. Please populate it.' };
   return [null, null, errMsg];  // Output 3: config issue
@@ -120,17 +124,31 @@ if (knownUsers.length === 0) {
 
 // 3. Validate inputs for normal routing
 try {
-  node.log('[DEBUG] Validating inputs before routing');
+  log('Validating inputs before routing');
   if (!validateInputs(userWhoChanged, alarmState)) {
-    node.log(`[WARN] Unknown or invalid user: ${userWhoChanged}`);
-    logMessage('WARN', `Invalid/unknown user. Routing to Output 3 - User: ${userWhoChanged}`);
+    log(`Unknown or invalid user: ${userWhoChanged}`, 'warn');
+    node.status({ fill: "yellow", shape: "ring", text: `Unknown: ${userWhoChanged}` });
+    node.error(new Error(`Invalid/unknown user: ${userWhoChanged}`), msg);
+    
+    // Track unknown user attempts in context
+    const unknownAttempts = context.get('unknown_attempts') || [];
+    unknownAttempts.push({
+      timestamp: new Date().toISOString(),
+      user: userWhoChanged,
+      state: alarmState
+    });
+    if (unknownAttempts.length > 20) unknownAttempts.shift();
+    context.set('unknown_attempts', unknownAttempts);
+    
     return [null, null, msg];  // Output 3: unknown user
   }
+  
   // 4. All checks passed: normal routing
-  return routeNormal(userWhoChanged, msg);
+  return routeNormal(userWhoChanged, alarmState, msg);
 } catch (err) {
   // Catch unexpected errors to avoid silent failures
-  node.log(`[ERROR] Exception caught: ${err.message}`);
-  logMessage('ERROR', `Unexpected error: ${err.message}`);
+  log(`Exception caught: ${err.message}`, 'error');
+  node.status({ fill: "red", shape: "ring", text: `Error: ${err.message}` });
+  node.error(err, msg);
   return [null, null, msg];  // Output 3: error path
 }

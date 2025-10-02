@@ -1,11 +1,11 @@
 /****************************************************
  * Script Name: Duress Alarm SMS Message Sender
  * Author: Quentin King
- * Version: 1.0.0
+ * Version: 1.1.0
  ****************************************************/
 
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.0.0';
+const SCRIPT_VERSION = '1.1.0';
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 
 // Import date-fns-tz for robust time zone and DST handling
@@ -125,6 +125,9 @@ return (async () => {
     const { formattedTimePush, formattedTimeTTS } = getFormattedTimes(now);
     
     try {
+        // Update node status to show processing
+        node.status({ fill: "yellow", shape: "dot", text: "Processing SMS request..." });
+        
         log('[Debug] Async function start');
         const ts = formattedTimePush;
         log(`[Debug] Timestamp=${ts}`);
@@ -132,7 +135,10 @@ return (async () => {
         // Validate incoming message
         if (!msg.payload || !msg.payload.message) {
             log('[ERROR] No message content found in msg.payload.message', 'error');
-            return [{
+            node.status({ fill: "red", shape: "ring", text: "No message content" });
+            node.error(new Error('No message content provided'), msg);
+            
+            const errorMsg = {
                 payload: {
                     error: 'No message content provided',
                     execution_id: executionId,
@@ -140,7 +146,9 @@ return (async () => {
                     alert_type: 'SMS_ERROR',
                     priority: 'HIGH'
                 }
-            }, null];
+            };
+            node.done();
+            return [errorMsg, null];
         }
 
         // Get environment variables
@@ -149,7 +157,10 @@ return (async () => {
         
         if (!apiKey) {
             log('[ERROR] SMS_API environment variable not set', 'error');
-            return [{
+            node.status({ fill: "red", shape: "ring", text: "API key not configured" });
+            node.error(new Error('SMS API key not configured'), msg);
+            
+            const errorMsg = {
                 payload: {
                     error: 'SMS API key not configured',
                     execution_id: executionId,
@@ -157,12 +168,17 @@ return (async () => {
                     alert_type: 'SMS_CONFIG_ERROR',
                     priority: 'HIGH'
                 }
-            }, null];
+            };
+            node.done();
+            return [errorMsg, null];
         }
 
         if (!deviceId) {
             log('[ERROR] DEVICE_ID environment variable not set', 'error');
-            return [{
+            node.status({ fill: "red", shape: "ring", text: "Device ID not configured" });
+            node.error(new Error('SMS Device ID not configured'), msg);
+            
+            const errorMsg = {
                 payload: {
                     error: 'SMS Device ID not configured',
                     execution_id: executionId,
@@ -170,14 +186,19 @@ return (async () => {
                     alert_type: 'SMS_CONFIG_ERROR',
                     priority: 'HIGH'
                 }
-            }, null];
+            };
+            node.done();
+            return [errorMsg, null];
         }
 
         // Get SMS recipients
         const recipients = getSmsRecipients();
         if (recipients.length === 0) {
             log('[ERROR] No SMS recipients found', 'error');
-            return [{
+            node.status({ fill: "red", shape: "ring", text: "No recipients configured" });
+            node.error(new Error('No SMS recipients configured'), msg);
+            
+            const errorMsg = {
                 payload: {
                     error: 'No SMS recipients configured',
                     execution_id: executionId,
@@ -185,7 +206,9 @@ return (async () => {
                     alert_type: 'SMS_CONFIG_ERROR',
                     priority: 'HIGH'
                 }
-            }, null];
+            };
+            node.done();
+            return [errorMsg, null];
         }
 
         log(`[Debug] Found ${recipients.length} SMS recipients`);
@@ -229,14 +252,39 @@ return (async () => {
         log('[Debug] SMS request prepared successfully');
         log('[Debug] Async success, returning messages');
         
+        // Update node status to show success with timestamp
+        const timeOnly = ts.split(',')[1].trim(); // Extract just the time portion
+        node.status({ fill: "green", shape: "dot", text: `SMS queued for ${recipients.length} recipient(s) at ${timeOnly}` });
+        
+        // Store SMS history in context for tracking
+        const smsHistory = context.get('sms_history') || [];
+        smsHistory.push({
+            timestamp: now.toISOString(),
+            execution_id: executionId,
+            formatted_time: ts,
+            recipient_count: recipients.length
+        });
+        // Keep only last 20 SMS sends
+        if (smsHistory.length > 20) {
+            smsHistory.shift();
+        }
+        context.set('sms_history', smsHistory);
+        
         // Output 1: Success status, Output 2: HTTP request for TextBee API
         node.done();
         return [{ payload: successPayload }, httpRequestMsg];
         
     } catch (error) {
         log(`[ERROR] Failed to process SMS request: ${error.message}`, 'error');
+        
+        // Update node status to show error
+        node.status({ fill: "red", shape: "ring", text: `Error: ${error.message}` });
+        
+        // Trigger catch node with proper error handling
+        node.error(error, msg);
+        
         // Return error payload
-        return [{
+        const errorMsg = {
             payload: {
                 message: 'EMERGENCY: System Error - Unable to send SMS alert',
                 title: 'SMS SYSTEM ERROR',
@@ -247,6 +295,9 @@ return (async () => {
                 alert_type: 'SMS_ERROR',
                 priority: 'HIGH'
             }
-        }, null];
+        };
+        
+        node.done();
+        return [errorMsg, null];
     }
 })();

@@ -106,6 +106,9 @@ return (async () => {
     const now = new Date();
     const { formattedTimePush, formattedTimeTTS } = getFormattedTimes(now);
     try {
+        // Update node status to show processing
+        node.status({ fill: "yellow", shape: "dot", text: "Processing test alert..." });
+        
         log('[Debug] Async function start');
         const ts = formattedTimePush;
         log(`[Debug] Timestamp=${ts}`);
@@ -170,13 +173,37 @@ return (async () => {
         };
         log('[Debug] payload assigned');
         log('[Debug] Async success, returning msg');
+        
+        // Update node status to show success
+        node.status({ fill: "green", shape: "dot", text: `TEST alert sent at ${ts.split(',')[1].trim()}` });
+        
+        // Store test activation in context for tracking
+        const testHistory = context.get('test_history') || [];
+        testHistory.push({
+            timestamp: now.toISOString(),
+            execution_id: executionId,
+            formatted_time: ts
+        });
+        // Keep only last 10 test runs
+        if (testHistory.length > 10) {
+            testHistory.shift();
+        }
+        context.set('test_history', testHistory);
+        
         // Output 1: main test alert, Output 2: array of Discord outputs (or null)
         node.done();
         return [msg, discordOutputs.length > 0 ? discordOutputs : null];
     } catch (error) {
         log(`[ERROR] Failed to generate duress test alert: ${error.message}`, 'error');
+        
+        // Update node status to show error
+        node.status({ fill: "red", shape: "ring", text: `Error: ${error.message}` });
+        
+        // Trigger catch node with proper error handling
+        node.error(error, msg);
+        
         // Return a minimal error payload instead of null
-        return [{
+        const errorMsg = {
             payload: {
                 message: '[TEST] System Error - Unable to generate duress test alert',
                 title: 'SYSTEM ERROR',
@@ -187,6 +214,9 @@ return (async () => {
                 alert_type: 'ERROR',
                 priority: 'HIGH'
             }
-        }, null];
+        };
+        
+        node.done();
+        return [errorMsg, null];
     }
 })();

@@ -115,6 +115,9 @@ return (async () => {
     const now = new Date();
     const { formattedTimePush, formattedTimeTTS } = getFormattedTimes(now);
     try {
+        // Update node status to show processing
+        node.status({ fill: "yellow", shape: "dot", text: "Processing duress alert..." });
+        
         log('[Debug] Async function start');
         // Use standard format for timestamp
         const ts = formattedTimePush;
@@ -179,13 +182,37 @@ return (async () => {
         };
         log('[Debug] payload assigned');
         log('[Debug] Async success, returning msg');
+        
+        // Update node status to show success
+        node.status({ fill: "red", shape: "dot", text: `DURESS alert sent at ${ts.split(',')[1].trim()}` });
+        
+        // Store duress activation in context for tracking
+        const duressHistory = context.get('duress_history') || [];
+        duressHistory.push({
+            timestamp: now.toISOString(),
+            execution_id: executionId,
+            formatted_time: ts
+        });
+        // Keep only last 10 activations
+        if (duressHistory.length > 10) {
+            duressHistory.shift();
+        }
+        context.set('duress_history', duressHistory);
+        
         // Output 1: main alert, Output 2: array of Discord outputs (or null)
         node.done();
         return [msg, discordOutputs.length > 0 ? discordOutputs : null];
     } catch (error) {
         log(`[ERROR] Failed to generate duress alert: ${error.message}`, 'error');
+        
+        // Update node status to show error
+        node.status({ fill: "red", shape: "ring", text: `Error: ${error.message}` });
+        
+        // Trigger catch node with proper error handling
+        node.error(error, msg);
+        
         // Return a minimal error payload instead of null
-        return [{
+        const errorMsg = {
             payload: {
                 message: 'EMERGENCY: System Error - Unable to generate duress alert',
                 title: 'SYSTEM ERROR',
@@ -196,6 +223,9 @@ return (async () => {
                 alert_type: 'ERROR',
                 priority: 'HIGH'
             }
-        }, null];
+        };
+        
+        node.done();
+        return [errorMsg, null];
     }
 })();

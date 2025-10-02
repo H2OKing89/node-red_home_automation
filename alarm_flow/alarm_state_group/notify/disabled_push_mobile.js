@@ -10,9 +10,12 @@
  * @param {Object} [msg.alarm] - Optional alarm information
  * @param {string} [msg.alarm.message] - Additional alarm message to display
  * @returns {Array} Array of notification messages for configured devices
+ * @version 1.1.0
  */
 
+(async () => {
 try {
+    node.status({ fill: "blue", shape: "dot", text: "Building notification..." });
     const notifyMapAndroidRaw = env.get("NOTIFY_MAP_ANDROID");
     const notifyMapIOSRaw = env.get("NOTIFY_MAP_IOS");
     const notifyMapAndroid = typeof notifyMapAndroidRaw === 'string' ? JSON.parse(notifyMapAndroidRaw) : (notifyMapAndroidRaw || {});
@@ -20,14 +23,18 @@ try {
     const pushMessage = env.get("ALARM_DISABLED_PUSH");
 
     if (!msg.data) {
+        node.status({ fill: "red", shape: "ring", text: "Error: msg.data undefined" });
         node.error('msg.data is undefined', msg);
+        node.done();
         return null;
     }
 
 const { entity_id: entityId, state } = msg.data;
 
 if (state !== "home") {
+    node.status({ fill: "yellow", shape: "ring", text: `${entityId} not home - skipped` });
     node.warn(`${entityId} is not home, skipping PUSH.`);
+    node.done();
     return null;
 }
 
@@ -41,7 +48,9 @@ const iosActions = notifyMapIOS && notifyMapIOS[entityId]
 const push = msg.push_text || pushMessage;
 
 if (androidActions.length === 0 && iosActions.length === 0) {
+    node.status({ fill: "yellow", shape: "ring", text: `No actions for ${entityId}` });
     node.warn(`No notify actions found for ${entityId}`);
+    node.done();
     return null;
 }
 
@@ -105,13 +114,32 @@ const iosPayload = (action) => ({
     androidActions.forEach(action => outMsgs.push(androidPayload(action)));
     iosActions.forEach(action => outMsgs.push(iosPayload(action)));
 
+    // Store notification history in context
+    const history = node.context().get('notification_history') || [];
+    history.push({
+        timestamp: new Date().toISOString(),
+        entity: entityId,
+        type: 'push',
+        state: 'disabled',
+        recipients: androidActions.length + iosActions.length,
+        android: androidActions.length,
+        ios: iosActions.length
+    });
+    if (history.length > 50) history.shift();
+    node.context().set('notification_history', history);
+
+    node.status({ fill: "green", shape: "dot", text: `Sent to ${outMsgs.length} devices` });
     node.log(`Building notification for entity: ${entityId} (${androidActions.length} Android, ${iosActions.length} iOS)`);
     
+    node.done();
     return [outMsgs];
 
 } catch (error) {
-    node.error(`Error processing notification: ${error.message}`, msg);
+    node.status({ fill: "red", shape: "ring", text: "Error: " + error.message });
+    node.error(error, msg);
+    node.done();
     return null;
 }
+})();
 
 

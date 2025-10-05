@@ -1,11 +1,13 @@
 /**
  * Node-RED Function: Weather Alert → Pushover Notification
- * Version: 2.0.2
+ * Version: 2.1.0
  * Author: Quentin
- * Date: 2025-05-21
+ * Date: October 4, 2025
  *
  * Enhancements:
- * - Alert validation & schema checking
+ * - v2.1.0: Added node.status() updates, node.done() calls, enhanced error handling
+ *           with msg object for Node-RED best practices
+ * - v2.0.2: Alert validation & schema checking
  * - Dynamic emoji & weather art fallback
  * - Cached Intl.DateTimeFormat instances
  * - Helper functions: URL builder, HTML composer, date formatting
@@ -19,6 +21,8 @@
 // --------------------------------------------------------------------------
 if (!Array.isArray(msg.payload) && typeof msg.payload !== 'object') {
     node.warn('Unexpected payload type – aborting');
+    node.status({ fill: 'yellow', shape: 'ring', text: 'Invalid payload' });
+    node.done();
     return null;
 }
 
@@ -240,7 +244,9 @@ function getSound(severity, priority) {
 const cfg = global.get('pushoverTokens') || {};
 const userKeys = global.get('pushoverUserKeys') || {};
 if (!cfg.adminToken || !userKeys.quentinUserKey) {
-    node.error('[CONFIG_ERROR] Missing Pushover tokens or user key');
+    node.error('[CONFIG_ERROR] Missing Pushover tokens or user key', msg);
+    node.status({ fill: 'red', shape: 'ring', text: 'Config error' });
+    node.done();
     return null;
 }
 
@@ -272,9 +278,13 @@ const eventEmojiMap = {
 // --------------------------------------------------------------------------
 // 9) Main logic
 // --------------------------------------------------------------------------
+node.status({ fill: 'blue', shape: 'dot', text: 'Processing alerts...' });
+
 const alertsRaw = msg.data?.event?.new_state?.attributes?.Alerts;
 if (!Array.isArray(alertsRaw) || alertsRaw.length === 0) {
     node.warn('[ALERT] No alert data available');
+    node.status({ fill: 'yellow', shape: 'ring', text: 'No alerts' });
+    node.done();
     return null;
 }
 const processed = Array.isArray(msg.payload) ? msg.payload : [msg.payload];
@@ -286,7 +296,9 @@ alertsRaw.forEach((alert, idx) => {
         const proc = processed[idx] || {};
         const priority = typeof proc.priority === 'number' ? proc.priority : 0;
         const eventName = alert.Event;
-        if (!eventName) throw new Error("Missing 'Event' field");        const emoji = eventEmojiMap[eventName] || getDynamicEmoji(alert);
+        if (!eventName) throw new Error("Missing 'Event' field");
+        
+        const emoji = eventEmojiMap[eventName] || getDynamicEmoji(alert);
         const title = `${emoji} Weather Alert: ${eventName} ${emoji}`;
         const htmlBody = composeHTMLMessage(alert);
         const soundName = getSound(alert.Severity, priority);
@@ -307,9 +319,11 @@ alertsRaw.forEach((alert, idx) => {
         outputMsgs.push({ payload: msgPayload });
     }
     catch (err) {
-        node.error(`[ALERT_ERROR] idx=${idx}, Error: ${err.message}`);
+        node.error(`[ALERT_ERROR] idx=${idx}, Error: ${err.message}`, msg);
     }
 });
 
 node.log(`[ALERT_DONE] Processed ${outputMsgs.length} alert(s)`);
+node.status({ fill: 'green', shape: 'dot', text: `Sent ${outputMsgs.length} alert(s)` });
+node.done();
 return outputMsgs;

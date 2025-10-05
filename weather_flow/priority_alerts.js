@@ -10,11 +10,13 @@
 //  - Assigns a priority to each event based on a predefined priority list.
 //  - Uses granular error handling so that a malformed alert won't stop processing of others.
 //
-// Version: 1.5.3
+// Version: 1.6.0
 // Author: Quentin
-// Date: 06/03/2025
+// Date: October 4, 2025
 //
 // Changelog:
+//  v1.6.0 - Added node.status() updates, node.done() calls, enhanced error handling
+//           with msg object, improved for Node-RED best practices
 //  v1.5.3 - Replaced node.info() with node.log() to match Function node API.
 //  v1.5.2 - Added comprehensive debug logs for tracing inputs, outputs, and state changes.
 //  v1.5.1 - Removed extra arguments from flow.get and flow.set to resolve TypeScript errors.
@@ -58,11 +60,13 @@ function validatePayload(msg) {
     node.log(`validatePayload: msg.payload type = ${typeof msg.payload}`);
     if (msg.payload === 'unavailable') {
         node.warn("Payload is 'unavailable'. Dropping the message.");
+        node.status({ fill: 'yellow', shape: 'ring', text: 'Payload unavailable' });
         return false;
     }
     const alerts = msg?.data?.event?.new_state?.attributes?.Alerts;
     if (!Array.isArray(alerts)) {
         node.warn("Missing or invalid Alerts array. Dropping the message.");
+        node.status({ fill: 'yellow', shape: 'ring', text: 'Invalid alerts array' });
         return false;
     }
     node.log(`validatePayload: Found ${alerts.length} alerts`);
@@ -132,10 +136,12 @@ function assignPriority(event) {
 // Main Function Logic
 // -----------------------------
 try {
+    node.status({ fill: 'blue', shape: 'dot', text: 'Processing alerts...' });
     node.log('Start processing incoming message');
     node.log(`Main: complete msg keys = [${Object.keys(msg).join(', ')}]`);
     if (!validatePayload(msg)) {
         node.log('Main: validation failed, dropping message');
+        node.done();
         return null;
     }
     const alerts = msg.data.event.new_state.attributes.Alerts;
@@ -159,13 +165,19 @@ try {
 
     if (processed.length === 0) {
         node.log('Main: no new alerts after processing, dropping message');
+        node.status({ fill: 'yellow', shape: 'ring', text: 'No new alerts' });
+        node.done();
         return null;
     }
     msg.payload = processed;
     node.log(`Main: finished processing, outputting ${processed.length} alerts`);
     node.debug(`Main: output payload = ${JSON.stringify(msg.payload)}`);
+    node.status({ fill: 'green', shape: 'dot', text: `Processed ${processed.length} alert(s)` });
+    node.done();
     return msg;
 } catch (err) {
-    node.error(`Main: critical error: ${err}`);
+    node.error(`Main: critical error: ${err}`, msg);
+    node.status({ fill: 'red', shape: 'ring', text: `Error: ${err.message}` });
+    node.done();
     return null;
 }

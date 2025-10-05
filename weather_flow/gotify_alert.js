@@ -1,3 +1,16 @@
+/**
+ * Node-RED Function: Weather Alert → Gotify Notification with Markdown
+ * 
+ * Version: 1.1.0
+ * Author: Quentin
+ * Date: October 4, 2025
+ * 
+ * Changelog:
+ *  v1.1.0 - Added node.status() updates, node.done() calls, enhanced error handling,
+ *           and improved logging levels for Node-RED best practices
+ *  v1.0.0 - Initial version
+ */
+
 // Determine how details are displayed; default to blockquote
 const DETAIL_FORMAT = global.get('detailFormat') || 'blockquote';
 // Configurable NWS zone and URL
@@ -174,7 +187,15 @@ function buildMarkdown(alert) {
 }
 
 // Main loop: process each alert into a Gotify payload
+node.status({ fill: 'blue', shape: 'dot', text: 'Processing alerts...' });
+
 const rawAlerts = msg.data?.event?.new_state?.attributes?.Alerts || [];
+if (rawAlerts.length === 0) {
+    node.status({ fill: 'yellow', shape: 'ring', text: 'No alerts to process' });
+    node.done();
+    return null;
+}
+
 const outputs = rawAlerts.map(alert => {
     try {
         const markdown = buildMarkdown(alert);
@@ -189,10 +210,18 @@ const outputs = rawAlerts.map(alert => {
             }
         };
     } catch (err) {
-        node.error(`ALERT_BUILD_ERROR: ${err.message}`);
+        node.error(`ALERT_BUILD_ERROR: ${err.message}`, msg);
         return null;
     }
 }).filter(o => o);
 
 // Return null if no alerts, else output array
+if (outputs.length === 0) {
+    node.status({ fill: 'red', shape: 'ring', text: 'All alerts failed processing' });
+    node.done();
+    return null;
+}
+
+node.status({ fill: 'green', shape: 'dot', text: `Sent ${outputs.length} alert(s)` });
+node.done();
 return outputs.length ? outputs : null;

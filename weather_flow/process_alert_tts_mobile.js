@@ -2,9 +2,14 @@
  * Node-RED Function: Weather Alert TTS to Mobile Device
  * Combines weather alert processing with mobile TTS notification
  * 
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Quentin
- * Date: June 24, 2025
+ * Date: October 4, 2025
+ * 
+ * Changelog:
+ *  v1.1.0 - Added node.status() updates, node.done() calls, enhanced error handling
+ *           with msg object for Node-RED best practices
+ *  v1.0.0 - Initial version
  */
 
 /* CONFIGURATION - Modify these values as needed */
@@ -45,9 +50,13 @@ function sanitizeText(t) {
 
 /* MAIN PROCESSING */
 try {
+    node.status({ fill: 'blue', shape: 'dot', text: 'Processing alert...' });
+    
     // Validate input data
     if (!msg.data) {
-        node.error('msg.data is undefined');
+        node.error('msg.data is undefined', msg);
+        node.status({ fill: 'red', shape: 'ring', text: 'Error: No data' });
+        node.done();
         return null;
     }
 
@@ -55,10 +64,13 @@ try {
     const rawAlerts = msg.data?.event?.new_state?.attributes?.Alerts;
     if (!Array.isArray(rawAlerts) || !validateAlert(rawAlerts[0])) {
         node.warn('Invalid or missing alert, skipping TTS.');
+        node.status({ fill: 'yellow', shape: 'ring', text: 'Invalid alert' });
+        node.done();
         return null;
     }
 
     const raw = rawAlerts[0];
+    node.status({ fill: 'blue', shape: 'dot', text: 'Building TTS message...' });
 
     // Sanitize fields
     const event = sanitizeText(raw.Event);
@@ -133,9 +145,13 @@ try {
 
     // Validate we have a device configured
     if (!config.mobileDevice) {
-        node.error('No mobile device configured in config.mobileDevice');
+        node.error('No mobile device configured in config.mobileDevice', msg);
+        node.status({ fill: 'red', shape: 'ring', text: 'Error: No device' });
+        node.done();
         return null;
     }
+
+    node.status({ fill: 'blue', shape: 'dot', text: 'Sending TTS...' });
 
     // Build mobile TTS payload
     const outMsg = {
@@ -155,10 +171,13 @@ try {
     };
 
     node.log(`Sending weather alert TTS to ${config.mobileDevice}`);
+    node.status({ fill: 'green', shape: 'dot', text: 'TTS sent' });
+    node.done();
     return [outMsg];
 
 } catch (e) {
-    node.error('Processing error: ' + e.message);
+    node.error('Processing error: ' + e.message, msg);
+    node.status({ fill: 'red', shape: 'ring', text: `Error: ${e.message}` });
     
     // Send error message as TTS if device is configured
     if (config.mobileDevice) {
@@ -176,8 +195,10 @@ try {
                 }
             }
         };
+        node.done();
         return [errorMsg];
     }
     
+    node.done();
     return null;
 }

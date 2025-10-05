@@ -7,11 +7,13 @@
  *  - Uses date-fns and date-fns-tz for reliable timezone handling.
  *  - Fully configurable via global context or node properties.
  *
- * Version: 1.2.0
- * Author: Quentin (patched)
- * Date: 07/09/2025
+ * Version: 1.3.0
+ * Author: Quentin
+ * Date: October 4, 2025
  *
  * Changelog:
+ *  v1.3.0 - Added node.status() updates, node.done() calls, enhanced error handling
+ *           with msg object for Node-RED best practices
  *  v1.2.0 - Switched to date-fns/date-fns-tz for timezone handling; removed moment.
  *  v1.1.1 - Switched to America/Chicago timezone; added global context config;
  *           improved error handling and logging levels.
@@ -40,13 +42,17 @@ try {
     formatInTimeZone = dateFnsTz.formatInTimeZone;
     zonedTimeToUtc = dateFnsTz.zonedTimeToUtc;
 } catch (err) {
-    node.error(`Timezone library missing: ${err.message}`);
+    node.error(`Timezone library missing: ${err.message}`, msg);
+    node.status({ fill: 'red', shape: 'ring', text: 'Library error' });
+    node.done();
 }
 
 // Extract alerts array safely (consider caching path lookup if high throughput)
 const alerts = msg.data?.event?.new_state?.attributes?.Alerts;
 if (!Array.isArray(alerts) || alerts.length === 0) {
     node.warn('No alerts found; message blocked.');
+    node.status({ fill: 'yellow', shape: 'ring', text: 'No alerts' });
+    node.done();
     return null;
 }
 const eventName = alerts[0].Event;  // Consider destructuring for clarity
@@ -67,17 +73,25 @@ try {
     // Suggestion: compare eventName in a case-insensitive manner if data varies
     if (eventName === config.bypassEvent) {
         node.log('Bypass event detected; sending message regardless of time.');
+        node.status({ fill: 'green', shape: 'dot', text: 'Bypass (Tornado)' });
+        node.done();
         return msg;
     }
     // Suggestion: combine conditions or use a lookup table for future bypass events
     if (currentHour >= config.startHour && currentHour < config.endHour) {
         node.log(`Within allowed window (${config.startHour}-${config.endHour}); currentHour=${currentHour}.`);
+        node.status({ fill: 'green', shape: 'dot', text: 'Time OK - sending' });
+        node.done();
         return msg;
     }
     node.debug(`Blocked: outside allowed hours. currentHour=${currentHour}.`);
+    node.status({ fill: 'yellow', shape: 'ring', text: `Blocked (${currentHour}:00)` });
+    node.done();
     return null;
 } catch (err) {
     // Suggestion: enrich error context with eventName and currentHour
-    node.error(`Error processing time restriction: ${err.message}`);
+    node.error(`Error processing time restriction: ${err.message}`, msg);
+    node.status({ fill: 'red', shape: 'ring', text: `Error: ${err.message}` });
+    node.done();
     return null;
 }

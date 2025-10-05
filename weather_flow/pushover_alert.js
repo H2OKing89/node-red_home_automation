@@ -1,33 +1,109 @@
 /**
  * Node-RED Function: Weather Alert → Pushover Notification
- * Version: 2.1.0
+ * Version: 2.2.0
  * Author: Quentin
  * Date: October 4, 2025
  *
- * Enhancements:
- * - v2.1.0: Added node.status() updates, node.done() calls, enhanced error handling
- *           with msg object for Node-RED best practices
- * - v2.0.2: Alert validation & schema checking
+ * Changelog v2.2.0:
+ * - Added structured logging with timestamps
+ * - Refactored geographic filtering to config-driven approach
+ * - Added context tracking for sent alert history
+ * - Consolidated config objects for better organization
+ * - Added cleanup handler for consistency
+ * - Improved error handling and status reporting
+ *
+ * Changelog v2.1.0:
+ * - Added node.status() updates, node.done() calls, enhanced error handling
+ *   with msg object for Node-RED best practices
+ * - Alert validation & schema checking
  * - Dynamic emoji & weather art fallback
  * - Cached Intl.DateTimeFormat instances
  * - Helper functions: URL builder, HTML composer, date formatting
  * - Simplified bullet formatting, truncation
  * - Sound selection based on severity & priority
  * - Improved, standardized logging
+ *
+ * IMPORTANT: Set Function timeout in Node-RED Setup tab (NR >= 3.1)
+ * Recommended: 10-15 seconds for notification processing
+ * 
+ * OPTIONAL: Consider adding 'date-fns' via Function External Modules
+ * for enhanced date formatting and timezone handling instead of Intl.DateTimeFormat
  */
 
 // --------------------------------------------------------------------------
-// 0) Fail-fast on unexpected payloads
+// 0) Configuration & Logging
+// --------------------------------------------------------------------------
+const LOGGING_ENABLED = true; // Set to false to disable detailed logging
+
+function logStructured(level, message, data = {}) {
+    if (!LOGGING_ENABLED) return;
+    const entry = {
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        ...data
+    };
+    const logFn = node[level] || node.log;
+    logFn(JSON.stringify(entry));
+}
+
+// Configuration object
+const config = {
+    geographic: {
+        targetCounties: ['Lancaster', 'Sarpy', 'Saunders', 'Seward'],
+        targetState: 'NE',
+        targetStateName: 'Nebraska',
+        excludeStates: ['Iowa', 'Kansas', 'Missouri', 'South Dakota']
+    },
+    emoji: {
+        dynamic: {
+            tornado: "🌪️", flood: "🌊", thunderstorm: "⛈️", snow: "❄️",
+            rain: "🌧️", wind: "💨", severe: "⛈️", moderate: "🌦️",
+            minor: "🌤️", default: "ℹ️"
+        },
+        eventMap: {
+            "Tornado Warning": "🌪️", "Rip Current Statement": "🏊", "Extreme Wind Warning": "💨",
+            "Blizzard Warning": "❄️", "Severe Thunderstorm Warning": "⛈️", "Flash Flood Warning": "🌊",
+            "Earthquake Warning": "💥", "Evacuation Immediate": "🚨", "Fire Warning": "🔥",
+            "Radiological Hazard Warning": "☢️", "Nuclear Power Plant Warning": "☢️",
+            "Shelter in Place Warning": "🏠", "Civil Danger Warning": "🚨",
+            "Hazardous Materials Warning": "☣️", "Law Enforcement Warning": "👮",
+            "Child Abduction Emergency": "🚨", "Flood Warning": "🌊", "High Wind Warning": "💨",
+            "Winter Storm Warning": "🌨️", "Severe Thunderstorm Watch": "⛈️", "Tornado Watch": "🌪️",
+            "Blue Alert": "🔵", "Civil Emergency Message": "🚨", "Local Area Emergency": "🚨",
+            "911 Telephone Outage Emergency": "📞", "Flash Flood Watch": "🌊", "Flood Watch": "🌊",
+            "Winter Storm Watch": "🌨️", "High Wind Watch": "💨", "Special Weather Statement": "ℹ️",
+            "Severe Weather Statement": "ℹ️", "Severe Thunderstorm Statement": "⛈️",
+            "Flood Statement": "🌊", "Tornado Statement": "🌪️", "Flash Flood Statement": "🌊",
+            "Freeze Warning": "🥶", "Red Flag Warning": "🚩", "Earthquake Statement": "💥"
+        }
+    },
+    priority: {
+        2: { level: 2, retry: 30, expire: 7200 },
+        1: { level: 1 },
+        0: { level: 0 }
+    },
+    pushover: {
+        limits: {
+            title: 247,      // 250 - 3 for '...'
+            message: 1000,   // 1024 - 24 for safety margin and '...'
+            url: 509         // 512 - 3 for safety
+        }
+    }
+};
+
+// --------------------------------------------------------------------------
+// 0a) Fail-fast on unexpected payloads
 // --------------------------------------------------------------------------
 if (!Array.isArray(msg.payload) && typeof msg.payload !== 'object') {
-    node.warn('Unexpected payload type – aborting');
+    logStructured('warn', 'Unexpected payload type – aborting', { payloadType: typeof msg.payload });
     node.status({ fill: 'yellow', shape: 'ring', text: 'Invalid payload' });
     node.done();
     return null;
 }
 
 // --------------------------------------------------------------------------
-// 0a) Alert validation & schema checking
+// 0b) Alert validation & schema checking
 // --------------------------------------------------------------------------
 function validateAlert(alert) {
     const required = ['Event', 'Severity', 'Sent'];
@@ -42,27 +118,22 @@ function validateAlert(alert) {
 }
 
 // --------------------------------------------------------------------------
-// 0b) Dynamic emoji & weather art fallback
+// 0c) Dynamic emoji & weather art fallback
 // --------------------------------------------------------------------------
-const dynamicEmojiMap = {
-    tornado: "🌪️", flood: "🌊", thunderstorm: "⛈️", snow: "❄️",
-    rain: "🌧️", wind: "💨", severe: "⛈️", moderate: "🌦️",
-    minor: "🌤️", default: "ℹ️"
-};
 function getDynamicEmoji(alert) {
     const name = (alert.Event || '').toLowerCase();
-    for (const key in dynamicEmojiMap) {
+    for (const key in config.emoji.dynamic) {
         if (key !== 'default' && name.includes(key)) {
-            return dynamicEmojiMap[key];
+            return config.emoji.dynamic[key];
         }
     }
     const sev = (alert.Severity || '').toLowerCase();
     for (const key of ['severe', 'moderate', 'minor']) {
         if (sev.includes(key)) {
-            return dynamicEmojiMap[key];
+            return config.emoji.dynamic[key];
         }
     }
-    return dynamicEmojiMap.default;
+    return config.emoji.dynamic.default;
 }
 
 // --------------------------------------------------------------------------
@@ -81,14 +152,66 @@ function formatDateTime(date) {
 }
 
 // --------------------------------------------------------------------------
-// 2) Build static (or dynamic) URL
+// 2) Geographic filtering helper functions
+// --------------------------------------------------------------------------
+function filterCountiesForNotification(areasText) {
+    if (!areasText) return '';
+    
+    const areaList = areasText.split(/[;,]/).map(area => area.trim());
+    const filteredAreas = areaList.filter(area => 
+        config.geographic.targetCounties.some(county => area.includes(county)) && 
+        area.includes(config.geographic.targetState)
+    );
+    
+    return filteredAreas.join(', ');
+}
+
+function filterStateContentForNotification(description) {
+    if (!description) return '';
+    
+    let filtered = description;
+    
+    // Remove excluded state sections
+    config.geographic.excludeStates.forEach(state => {
+        const stateUpper = state.toUpperCase();
+        // Pattern: "IN [STATE] THIS WATCH INCLUDES..."
+        const watchPattern = new RegExp(
+            `IN ${stateUpper} THIS WATCH INCLUDES[\\s\\S]*?(?=IN ${config.geographic.targetStateName.toUpperCase()}|IN \\w+ ${config.geographic.targetStateName.toUpperCase()}|$)`,
+            'gi'
+        );
+        filtered = filtered.replace(watchPattern, '');
+        
+        // Pattern: "IN [DIRECTION] [STATE]..."
+        const dirPattern = new RegExp(
+            `IN \\w+ ${stateUpper}[\\s\\S]*?(?=IN ${config.geographic.targetStateName.toUpperCase()}|IN \\w+ ${config.geographic.targetStateName.toUpperCase()}|$)`,
+            'gi'
+        );
+        filtered = filtered.replace(dirPattern, '');
+    });
+    
+    // Remove geographic area listings for target state too
+    filtered = filtered.replace(
+        new RegExp(`IN ${config.geographic.targetStateName.toUpperCase()} THIS WATCH INCLUDES[\\s\\S]*?(?=THIS INCLUDES THE CITIES|$)`, 'gi'),
+        ''
+    );
+    filtered = filtered.replace(
+        new RegExp(`IN \\w+ ${config.geographic.targetStateName.toUpperCase()}[\\s\\S]*?(?=THIS INCLUDES THE CITIES|IN \\w+ ${config.geographic.targetStateName.toUpperCase()}|$)`, 'gi'),
+        ''
+    );
+    filtered = filtered.replace(/THIS INCLUDES THE CITIES OF[\s\S]*$/gi, '');
+    
+    return filtered.replace(/\s+/g, ' ').trim();
+}
+
+// --------------------------------------------------------------------------
+// 3) Build static (or dynamic) URL
 // --------------------------------------------------------------------------
 function buildStaticURL(zoneid = 'NEZ066') {
     return `https://forecast.weather.gov/MapClick.php?zoneid=${zoneid}`;
 }
 
 // --------------------------------------------------------------------------
-// 3a) Message length validation for Pushover limits
+// 4) Message length validation for Pushover limits
 // --------------------------------------------------------------------------
 function truncateToLimit(text, maxChars = 1024) {
     if (text.length <= maxChars) return text;
@@ -99,16 +222,12 @@ function truncateToLimit(text, maxChars = 1024) {
 }
 
 function validatePushoverLimits(title, message, url = '') {
-    const limits = {
-        title: 247,      // 250 - 3 for '...'
-        message: 1000,   // 1024 - 24 for safety margin and '...'
-        url: 509         // 512 - 3 for safety
-    };
-    
     return {
-        title: title.length > limits.title ? title.substring(0, limits.title) + '...' : title,
-        message: truncateToLimit(message, limits.message),
-        url: url.length > limits.url ? url.substring(0, limits.url) : url
+        title: title.length > config.pushover.limits.title ? 
+            title.substring(0, config.pushover.limits.title) + '...' : title,
+        message: truncateToLimit(message, config.pushover.limits.message),
+        url: url.length > config.pushover.limits.url ? 
+            url.substring(0, config.pushover.limits.url) : url
     };
 }
 // --------------------------------------------------------------------------
@@ -148,7 +267,7 @@ function bulletsWithLimit(text, limit) {
 }
 
 // --------------------------------------------------------------------------
-// 4) Compose HTML message
+// 5) Compose HTML message
 // --------------------------------------------------------------------------
 function composeHTMLMessage(alert) {
     const sev = alert.Severity || 'Unknown';
@@ -167,28 +286,16 @@ function composeHTMLMessage(alert) {
 
     // Add affected areas (filtered for Nebraska counties)
     if (alert.AreasAffected) {
-        const targetCounties = ['Lancaster', 'Sarpy', 'Saunders', 'Seward'];
-        const areas = alert.AreasAffected.split(/[;,]/)
-            .map(area => area.trim())
-            .filter(area => targetCounties.some(county => area.includes(county) && area.includes('NE')))
-            .join(', ');
+        const areas = filterCountiesForNotification(alert.AreasAffected);
         
         if (areas) {
             msg += `<br><br><strong>📍 Affected Areas:</strong><br>${areas}`;
         }
-    }    // Add description (filtered to remove Iowa content and area listings)
+    }
+    
+    // Add description (filtered to remove Iowa content and area listings)
     if (alert.Description) {
-        let desc = alert.Description;
-        
-        // Extract just the essential information, removing geographic listings
-        desc = desc.replace(/IN IOWA THIS WATCH INCLUDES[\s\S]*?(?=IN NEBRASKA|IN \w+ NEBRASKA|$)/gi, '')
-                  .replace(/IN SOUTHWEST IOWA[\s\S]*?(?=IN NEBRASKA|IN \w+ NEBRASKA|$)/gi, '')
-                  .replace(/IN WEST CENTRAL IOWA[\s\S]*?(?=IN NEBRASKA|IN \w+ NEBRASKA|$)/gi, '')
-                  .replace(/IN NEBRASKA THIS WATCH INCLUDES[\s\S]*?(?=THIS INCLUDES THE CITIES|$)/gi, '')
-                  .replace(/IN \w+ NEBRASKA[\s\S]*?(?=THIS INCLUDES THE CITIES|IN \w+ NEBRASKA|$)/gi, '')
-                  .replace(/THIS INCLUDES THE CITIES OF[\s\S]*$/gi, '')
-                  .replace(/\s+/g, ' ')
-                  .trim();
+        let desc = filterStateContentForNotification(alert.Description);
         
         // Keep only the essential watch information
         if (desc) {
@@ -228,7 +335,7 @@ function composeHTMLMessage(alert) {
 }
 
 // --------------------------------------------------------------------------
-// 5) Sound selection
+// 6) Sound selection
 // --------------------------------------------------------------------------
 function getSound(severity, priority) {
     const sev = (severity || '').toLowerCase();
@@ -239,50 +346,55 @@ function getSound(severity, priority) {
 }
 
 // --------------------------------------------------------------------------
-// 6) Pushover config
+// 7) Context tracking for sent alerts
+// --------------------------------------------------------------------------
+function trackSentAlert(alertData) {
+    const history = context.get('sent_alert_history') || [];
+    const alertEntry = {
+        timestamp: new Date().toISOString(),
+        event: alertData.Event,
+        priority: alertData.priority,
+        severity: alertData.Severity,
+        userKey: alertData.userKey
+    };
+    history.push(alertEntry);
+    // Keep only last 20 alerts
+    if (history.length > 20) history.shift();
+    context.set('sent_alert_history', history);
+    context.set('last_alert_sent', alertEntry.timestamp);
+    context.set('alert_sent_count', (context.get('alert_sent_count') || 0) + 1);
+}
+
+// --------------------------------------------------------------------------
+// 8) Pushover config
 // --------------------------------------------------------------------------
 const cfg = global.get('pushoverTokens') || {};
 const userKeys = global.get('pushoverUserKeys') || {};
 if (!cfg.adminToken || !userKeys.quentinUserKey) {
-    node.error('[CONFIG_ERROR] Missing Pushover tokens or user key', msg);
+    logStructured('error', 'Missing Pushover tokens or user key', { 
+        hasAdminToken: !!cfg.adminToken, 
+        hasUserKey: !!userKeys.quentinUserKey 
+    });
     node.status({ fill: 'red', shape: 'ring', text: 'Config error' });
     node.done();
     return null;
 }
 
 // --------------------------------------------------------------------------
-// 7) Priority map
+// 9) Cleanup handler
 // --------------------------------------------------------------------------
-const priorityMap = { 2: { level: 2, retry: 30, expire: 7200 }, 1: { level: 1 }, 0: { level: 0 } };
+node.on('close', () => {
+    logStructured('log', 'Pushover alert processor cleaned up');
+});
 
 // --------------------------------------------------------------------------
-// 8) Static event→emoji map
-// --------------------------------------------------------------------------
-const eventEmojiMap = {
-    "Tornado Warning": "🌪️", "Rip Current Statement": "🏊", "Extreme Wind Warning": "💨",
-    "Blizzard Warning": "❄️", "Severe Thunderstorm Warning": "⛈️", "Flash Flood Warning": "🌊",
-    "Earthquake Warning": "💥", "Evacuation Immediate": "🚨", "Fire Warning": "🔥",
-    "Radiological Hazard Warning": "☢️", "Nuclear Power Plant Warning": "☢️",
-    "Shelter in Place Warning": "🏠", "Civil Danger Warning": "🚨",
-    "Hazardous Materials Warning": "☣️", "Law Enforcement Warning": "👮",
-    "Child Abduction Emergency": "🚨", "Flood Warning": "🌊", "High Wind Warning": "💨",
-    "Winter Storm Warning": "🌨️", "Severe Thunderstorm Watch": "⛈️", "Tornado Watch": "🌪️",
-    "Blue Alert": "🔵", "Civil Emergency Message": "🚨", "Local Area Emergency": "🚨",
-    "911 Telephone Outage Emergency": "📞", "Flash Flood Watch": "🌊", "Flood Watch": "🌊",
-    "Winter Storm Watch": "🌨️", "High Wind Watch": "💨", "Special Weather Statement": "ℹ️",
-    "Severe Weather Statement": "ℹ️", "Severe Thunderstorm Statement": "⛈️",
-    "Flood Statement": "🌊", "Tornado Statement": "🌪️", "Flash Flood Statement": "🌊",
-    "Freeze Warning": "🥶", "Red Flag Warning": "🚩", "Earthquake Statement": "💥"
-};
-
-// --------------------------------------------------------------------------
-// 9) Main logic
+// 10) Main logic
 // --------------------------------------------------------------------------
 node.status({ fill: 'blue', shape: 'dot', text: 'Processing alerts...' });
 
 const alertsRaw = msg.data?.event?.new_state?.attributes?.Alerts;
 if (!Array.isArray(alertsRaw) || alertsRaw.length === 0) {
-    node.warn('[ALERT] No alert data available');
+    logStructured('warn', 'No alert data available');
     node.status({ fill: 'yellow', shape: 'ring', text: 'No alerts' });
     node.done();
     return null;
@@ -298,11 +410,11 @@ alertsRaw.forEach((alert, idx) => {
         const eventName = alert.Event;
         if (!eventName) throw new Error("Missing 'Event' field");
         
-        const emoji = eventEmojiMap[eventName] || getDynamicEmoji(alert);
+        const emoji = config.emoji.eventMap[eventName] || getDynamicEmoji(alert);
         const title = `${emoji} Weather Alert: ${eventName} ${emoji}`;
         const htmlBody = composeHTMLMessage(alert);
         const soundName = getSound(alert.Severity, priority);
-        const pMap = priorityMap[priority] || priorityMap[0];
+        const pMap = config.priority[priority] || config.priority[0];
 
         // Validate and truncate message to fit Pushover limits
         const validated = validatePushoverLimits(title, htmlBody, buildStaticURL(alert.ZoneID));
@@ -315,15 +427,38 @@ alertsRaw.forEach((alert, idx) => {
         if (pMap.retry) msgPayload.retry = pMap.retry;
         if (pMap.expire) msgPayload.expire = pMap.expire;
 
-        node.log(`[ALERT_OK] idx=${idx}, Event=${eventName}, prio=${pMap.level}, sound=${soundName}, msgLen=${validated.message.length}`);
+        // Track sent alert in context
+        trackSentAlert({
+            Event: eventName,
+            Severity: alert.Severity,
+            priority: priority,
+            userKey: userKeys.quentinUserKey
+        });
+
+        logStructured('log', 'Alert processed successfully', {
+            index: idx,
+            event: eventName,
+            priority: pMap.level,
+            sound: soundName,
+            messageLength: validated.message.length
+        });
+        
         outputMsgs.push({ payload: msgPayload });
     }
     catch (err) {
-        node.error(`[ALERT_ERROR] idx=${idx}, Error: ${err.message}`, msg);
+        logStructured('error', 'Alert processing failed', {
+            index: idx,
+            error: err.message,
+            event: alert?.Event || 'unknown'
+        });
+        node.error(`Alert processing error at index ${idx}: ${err.message}`, msg);
     }
 });
 
-node.log(`[ALERT_DONE] Processed ${outputMsgs.length} alert(s)`);
+logStructured('log', 'Alert processing completed', { 
+    totalAlerts: alertsRaw.length, 
+    processed: outputMsgs.length 
+});
 node.status({ fill: 'green', shape: 'dot', text: `Sent ${outputMsgs.length} alert(s)` });
 node.done();
 return outputMsgs;

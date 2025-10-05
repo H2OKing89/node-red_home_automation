@@ -1,11 +1,11 @@
 /****************************************************
  * Script Name: Duress Alarm Test Message Generator
  * Author: Quentin King
- * Version: 1.11.0
+ * Version: 1.12.0
  ****************************************************/
 
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.11.0';
+const SCRIPT_VERSION = '1.12.0';
 const executionId = `${Date.now()}-${Math.random().toString(36).slice(2,11)}`;
 const { formatInTimeZone } = dateFnsTz;
 const TIME_ZONE = 'America/Chicago';
@@ -295,6 +295,7 @@ return (async () => {
         const payloadTopic = testObj?.message?.headline 
             || `${isTest ? "[TEST] " : ""}DURESS Alarm System Check`;
         
+        // Preserve important msg properties per Section 1.1 best practice
         msg.payload = {
             message: testMsg,
             title: payloadTitle,
@@ -306,11 +307,18 @@ return (async () => {
             alert_type: alertType,
             priority: priority
         };
+        // Preserve original message ID and any existing topic for traceability
+        if (msg._msgid === undefined) msg._msgid = executionId;
+        if (!msg.topic) msg.topic = payloadTopic;
+        
         log('[Debug] payload assigned');
         log('[Debug] Async success, returning msg');
         
         // Update node status to show success
         node.status({ fill: "green", shape: "dot", text: `TEST alert sent at ${ts.split(',')[1].trim()}` });
+        
+        // Clear status after 30 seconds to avoid stale indicators (Section 5 best practice)
+        //setTimeout(() => node.status({}), 30000);
         
         // Store test activation in context for tracking
         const testHistory = context.get('test_history') || [];
@@ -329,6 +337,16 @@ return (async () => {
         node.send([msg, discordOutputs.length > 0 ? discordOutputs : null]);
     } catch (error) {
         log(`[ERROR] Failed to generate duress test alert: ${error.message}`, 'error');
+        
+        // Add diagnostic context per Section 9.6 of Node-RED best practices
+        msg.errorMeta = {
+            timestamp: now.toISOString(),
+            executionId: executionId,
+            payloadType: typeof msg.payload,
+            scriptVersion: SCRIPT_VERSION,
+            errorMessage: error.message,
+            errorStack: error.stack
+        };
         
         // Update node status to show error
         node.status({ fill: "red", shape: "ring", text: `Error: ${error.message}` });

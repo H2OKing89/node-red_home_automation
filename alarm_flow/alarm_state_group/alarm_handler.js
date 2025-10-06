@@ -4,7 +4,14 @@
  * Flow: House Alarm
  * Group: Comprehensive Alarm Management, Notifications, and Emergency Handling
  * Date: 2024-09-02 (Updated 2025-10-05)
- * Version: 1.5.0
+ * Version: 1.6.0
+ * 1.6.0 change_log:
+ * - Added comprehensive JSDoc comments for all functions
+ * - Added setStatus() helper function to reduce code repetition
+ * - Enhanced defensive null checks throughout (msg structure, state validation, changed_by)
+ * - Improved error messages with better context
+ * - Added detailed function parameter documentation
+ * - Added output port mapping documentation
  * 1.5.0 change_log:
  * - Added multi-alarm support with alarm name extraction from friendly_name
  * - All notifications now include the specific alarm panel name
@@ -23,7 +30,7 @@
  */
 
 const LOGGING_ENABLED = true;
-const SCRIPT_VERSION = '1.5.0';
+const SCRIPT_VERSION = '1.6.0';
 
 /**
  * Simple logging function
@@ -35,6 +42,16 @@ function log(message, level = "info") {
     if (level === "error") node.error(message);
     else if (level === "warn") node.warn(message);
     else node.log(message);
+}
+
+/**
+ * Updates the node status badge with consistent formatting
+ * @param {string} fill - Color: 'yellow' (processing), 'green' (success), 'red' (error), 'blue' (info)
+ * @param {string} text - Status text to display
+ * @param {string} [shape='dot'] - Shape: 'dot', 'ring'
+ */
+function setStatus(fill, text, shape = 'dot') {
+    node.status({ fill, shape, text });
 }
 
 // --- Speaker & Volume Configuration ---
@@ -74,25 +91,45 @@ if (missingConfig.length > 0) {
 }
 
 // --- Delay Helper ---
+/**
+ * Creates a promise that resolves after specified milliseconds
+ * @param {number} ms - Milliseconds to wait
+ * @returns {Promise<void>}
+ */
 function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 // --- Alarm Name Extractor ---
 /**
- * Extracts the alarm name from the incoming message
- * @param {object} msg - The Node-RED message object
- * @returns {string} - The alarm panel name (e.g., "West Garage", "House Alarm")
+ * Extracts the alarm name from the incoming message with multiple fallback strategies
+ * @param {object} msg - The Node-RED message object containing alarm state data
+ * @returns {string} The alarm panel name (e.g., "West Garage", "House Alarm")
+ * 
+ * @example
+ * // From friendly_name attribute
+ * getAlarmName({ data: { event: { new_state: { attributes: { friendly_name: "West Garage" }}}}})
+ * // Returns: "West Garage"
+ * 
+ * @example
+ * // From entity_id parsing
+ * getAlarmName({ data: { entity_id: "alarm_control_panel.west_garage" }})
+ * // Returns: "West Garage"
  */
 function getAlarmName(msg) {
+    if (!msg || !msg.data) {
+        log('Invalid message structure in getAlarmName', 'warn');
+        return 'Alarm';
+    }
+    
     // Primary: Use friendly_name from attributes
     const friendlyName = msg.data?.event?.new_state?.attributes?.friendly_name;
-    if (friendlyName) {
+    if (friendlyName && typeof friendlyName === 'string') {
         log(`Extracted alarm name from friendly_name: ${friendlyName}`);
         return friendlyName;
     }
     
     // Fallback: Parse from entity_id
     const entityId = msg.data?.entity_id || msg.data?.event?.entity_id;
-    if (entityId) {
+    if (entityId && typeof entityId === 'string') {
         const parts = entityId.split('.');
         if (parts.length === 2 && parts[0] === 'alarm_control_panel') {
             // Convert "west_garage" to "West Garage"
@@ -110,8 +147,20 @@ function getAlarmName(msg) {
 
 // --- Pushover Notification ---
 const SCRIPT_NAME = 'Alarm handler with Multi-Speaker TTS';
+
+/**
+ * Sends a push notification via Pushover API
+ * @param {string} message - The notification message body
+ * @param {string} [title='Error Notification'] - The notification title
+ * @returns {Promise<void>}
+ */
 async function sendPushoverNotification(message, title = 'Error Notification') {
     if (!PUSHOVER_ENABLED) return;
+    if (!message) {
+        log('sendPushoverNotification called with empty message', 'warn');
+        return;
+    }
+    
     // Always include script name in the title for traceability
     const fullTitle = `${SCRIPT_NAME}: ${title}`;
     const pushoverPayload = {
@@ -127,11 +176,19 @@ async function sendPushoverNotification(message, title = 'Error Notification') {
     }
 }
 
+/**
+ * Centralized error handler with logging, notifications, and status updates
+ * @param {Error} error - The error object
+ * @param {object} [context] - Additional context information for debugging
+ * @param {object} [msg] - The Node-RED message object (for Catch node routing)
+ * @returns {Promise<void>}
+ */
 async function handleError(error, context, msg) {
-    log(`Error: ${error.message}`, 'error');
+    const errorMsg = error?.message || 'Unknown error';
+    log(`Error: ${errorMsg}`, 'error');
     if (context) log(`Context: ${JSON.stringify(context)}`, 'error');
-    await sendPushoverNotification(`Error: ${error.message}\nContext: ${JSON.stringify(context)}`);
-    node.status({ fill: 'red', shape: 'ring', text: error.message });
+    await sendPushoverNotification(`Error: ${errorMsg}\nContext: ${JSON.stringify(context || {})}`);
+    setStatus('red', errorMsg, 'ring');
     // Trigger catch node with proper error handling
     if (msg) node.error(error, msg);
 }
@@ -183,6 +240,11 @@ function getFormattedTimes(date) {
 }
 
 // --- Payload Generators ---
+/**
+ * Builds a Home Assistant service call payload for Sonos TTS
+ * @param {string} messageText - The text to speak
+ * @returns {object} Home Assistant service call payload
+ */
 function buildSonosPayload(messageText) {
     const encoded = encodeURIComponent(`"${messageText}"`); // wrap in quotes
     return {
@@ -196,6 +258,11 @@ function buildSonosPayload(messageText) {
         }
     };
 }
+
+/**
+ * Builds a Home Assistant service call payload to set Google speaker volume
+ * @returns {object} Home Assistant service call payload
+ */
 function buildGoogleVolumePayload() {
     const level = Math.min(Math.max(config.googleVolume, 0), 1);
     return {
@@ -204,6 +271,12 @@ function buildGoogleVolumePayload() {
         data: { volume_level: level }
     };
 }
+
+/**
+ * Builds a Home Assistant service call payload for Google Home TTS
+ * @param {string} messageText - The text to speak
+ * @returns {object} Home Assistant service call payload
+ */
 function buildGoogleTtsPayload(messageText) {
     return {
         action: "tts.google_say",
@@ -213,6 +286,11 @@ function buildGoogleTtsPayload(messageText) {
 }
 
 // --- Helper to Build Combined TTS Output ---
+/**
+ * Builds an array of TTS payloads for both Sonos and Google speakers
+ * @param {string} ttsText - The text to speak
+ * @returns {Array<object>} Array of message objects with TTS payloads
+ */
 function buildMultiTTS(ttsText) {
     return [
         { payload: buildSonosPayload(ttsText) },
@@ -222,7 +300,13 @@ function buildMultiTTS(ttsText) {
     ];
 }
 
-// --- Helper Function to Create Notification + Multi-TTS ---
+/**
+ * Creates a combined notification and TTS message object
+ * @param {string} messageText - Push notification message text
+ * @param {string} title - Notification title
+ * @param {string} ttsText - Text-to-speech message (may differ from push text)
+ * @returns {object} Object with notification and tts properties
+ */
 function createMessageMultiTTS(messageText, title, ttsText) {
     return {
         notification: { alarm: { message: messageText, title: title } },
@@ -231,6 +315,16 @@ function createMessageMultiTTS(messageText, title, ttsText) {
 }
 
 // --- Output Object to Array (output indexes as before, but TTS index gets an array) ---
+/**
+ * Converts notification output object to Node-RED output array format
+ * @param {object} output - Object containing notification types as keys
+ * @returns {Array<object|null>} Array of 11 outputs mapped to Node-RED output ports
+ * 
+ * Output port mapping:
+ * 0: disarmed, 1: TTS, 2: armedAway, 3: triggered, 4: armedHome,
+ * 5: armedNight, 6: armedVacation, 7: armedCustomBypass, 8: pending,
+ * 9: unknown, 10: arming
+ */
 function buildOutputArray(output) {
     const outputs = Array(11).fill(null);
     if (output.disarmedNotification) outputs[0] = { ...output.disarmedNotification, msgType: "disarmed" };
@@ -247,7 +341,14 @@ function buildOutputArray(output) {
     return outputs;
 }
 
-// --- Simple State Handler ---
+/**
+ * Simplified builder for simple state notifications (armed, pending, etc.)
+ * @param {string} notificationKey - The key name for this notification type
+ * @param {string} title - Notification title
+ * @param {string} messageText - Push notification message
+ * @param {string} ttsText - Text-to-speech message
+ * @returns {Array<object|null>} Node-RED output array
+ */
 function buildSimpleStateOutput(notificationKey, title, messageText, ttsText) {
     const messages = createMessageMultiTTS(messageText, title, ttsText);
     const output = { tts: messages.tts };
@@ -256,8 +357,16 @@ function buildSimpleStateOutput(notificationKey, title, messageText, ttsText) {
 }
 
 // --- Alarm State Handlers ---
+/**
+ * Handles triggered alarm state - processes sensor data and creates notifications
+ * @param {object} msg - Node-RED message with alarm state data
+ * @param {string} formattedTimePush - Formatted timestamp for push notifications
+ * @param {string} formattedTimeTTS - Formatted timestamp for TTS
+ * @param {string} alarmName - Name of the alarm panel
+ * @returns {Array<object|null>} Node-RED output array
+ */
 function handleTriggeredState(msg, formattedTimePush, formattedTimeTTS, alarmName) {
-    const triggeredSensors = msg.data.event.new_state.attributes.open_sensors || {};
+    const triggeredSensors = msg.data?.event?.new_state?.attributes?.open_sensors || {};
     const sensorMessages = [];
     const ttsMessages = [];
     Object.keys(triggeredSensors).forEach(sensor => {
@@ -275,15 +384,33 @@ function handleTriggeredState(msg, formattedTimePush, formattedTimeTTS, alarmNam
     const messages = createMessageMultiTTS(messageText, `${alarmName.toUpperCase()} TRIGGERED`, ttsMessageText);
     return buildOutputArray({ tts: messages.tts, triggeredNotification: messages.notification });
 }
+
+/**
+ * Handles disarmed state - validates user and creates notifications
+ * @param {object} msg - Node-RED message with alarm state data
+ * @param {string} formattedTimePush - Formatted timestamp for push notifications
+ * @param {string} formattedTimeTTS - Formatted timestamp for TTS
+ * @param {string} alarmName - Name of the alarm panel
+ * @returns {Array<object|null>|null} Node-RED output array or null if user not recognized
+ */
 function handleDisarmedState(msg, formattedTimePush, formattedTimeTTS, alarmName) {
-    const { changed_by } = msg.data.event.new_state.attributes;
-    if (typeof changed_by === 'string' && knownUsers.includes(changed_by.toLowerCase())) {
+    const changed_by = msg.data?.event?.new_state?.attributes?.changed_by;
+    if (typeof changed_by === 'string' && changed_by.length > 0 && knownUsers.includes(changed_by.toLowerCase())) {
         const disarmedMessage = `${changed_by} has disabled the ${alarmName} on ${formattedTimePush}.`;
         const disarmedTTSMessage = `${changed_by} has disabled the ${alarmName}.`;
         return buildSimpleStateOutput('disarmedNotification', `${alarmName} Status`, disarmedMessage, disarmedTTSMessage);
     }
     return null;
 }
+
+/**
+ * Handles armed states (home, away, night, vacation, custom_bypass)
+ * @param {string} type - The armed mode type (home, away, night, etc.)
+ * @param {string} formattedTimePush - Formatted timestamp for push notifications
+ * @param {string} formattedTimeTTS - Formatted timestamp for TTS
+ * @param {string} alarmName - Name of the alarm panel
+ * @returns {Array<object|null>} Node-RED output array
+ */
 function handleArmedState(type, formattedTimePush, formattedTimeTTS, alarmName) {
     const armedMessageText = `The ${alarmName} is now set to armed ${type} on ${formattedTimePush}.`;
     const armedTTSMessageText = `The ${alarmName} is now set to armed ${type}.`;
@@ -298,6 +425,14 @@ function handleArmedState(type, formattedTimePush, formattedTimeTTS, alarmName) 
     }
     return buildSimpleStateOutput(notificationKey, `${alarmName} Status`, armedMessageText, armedTTSMessageText);
 }
+
+/**
+ * Handles pending state - alarm is armed and counting down
+ * @param {string} formattedTimePush - Formatted timestamp for push notifications
+ * @param {string} formattedTimeTTS - Formatted timestamp for TTS
+ * @param {string} alarmName - Name of the alarm panel
+ * @returns {Array<object|null>} Node-RED output array
+ */
 function handlePendingState(formattedTimePush, formattedTimeTTS, alarmName) {
     return buildSimpleStateOutput(
         'pendingNotification',
@@ -306,6 +441,14 @@ function handlePendingState(formattedTimePush, formattedTimeTTS, alarmName) {
         `Please be advised, The ${alarmName} is armed and will notify the police. Please disarm the alarm immediately.`
     );
 }
+
+/**
+ * Handles unknown/unavailable alarm state
+ * @param {string} formattedTimePush - Formatted timestamp for push notifications
+ * @param {string} formattedTimeTTS - Formatted timestamp for TTS
+ * @param {string} alarmName - Name of the alarm panel
+ * @returns {Array<object|null>} Node-RED output array
+ */
 function handleUnknownState(formattedTimePush, formattedTimeTTS, alarmName) {
     return buildSimpleStateOutput(
         'unknownNotification',
@@ -314,6 +457,14 @@ function handleUnknownState(formattedTimePush, formattedTimeTTS, alarmName) {
         `The ${alarmName} state is unknown or unavailable.`
     );
 }
+
+/**
+ * Handles arming state - alarm is in the process of arming
+ * @param {string} formattedTimePush - Formatted timestamp for push notifications
+ * @param {string} formattedTimeTTS - Formatted timestamp for TTS
+ * @param {string} alarmName - Name of the alarm panel
+ * @returns {Array<object|null>} Node-RED output array
+ */
 function handleArmingState(formattedTimePush, formattedTimeTTS, alarmName) {
     return buildSimpleStateOutput(
         'armingNotification',
@@ -339,17 +490,37 @@ const stateHandlers = {
 };
 
 // --- Main Async Function ---
+/**
+ * Main entry point - processes alarm state changes and routes notifications
+ * @param {object} msg - Node-RED message containing alarm state data
+ * @returns {Promise<Array<object|null>|null>} Node-RED output array or null
+ */
 async function main(msg) {
     try {
+        // Validate message structure
+        if (!msg || !msg.data || !msg.data.event || !msg.data.event.new_state) {
+            log('Invalid message structure received', 'error');
+            setStatus('red', 'Invalid message', 'ring');
+            node.done();
+            return null;
+        }
+        
         // Extract alarm name early
         const alarmName = getAlarmName(msg);
         
         // Update node status to show processing
-        node.status({ fill: "yellow", shape: "dot", text: `Processing ${alarmName}...` });
+        setStatus('yellow', `Processing ${alarmName}...`);
         
         const currentTime = new Date();
         const { formattedTimePush, formattedTimeTTS } = getFormattedTimes(currentTime);
-        const { new_state: { state } } = msg.data.event;
+        const state = msg.data.event.new_state.state;
+        
+        if (!state || typeof state !== 'string') {
+            log('Invalid or missing alarm state', 'error');
+            setStatus('red', 'Invalid state', 'ring');
+            node.done();
+            return null;
+        }
         
         log(`Processing ${alarmName} state: ${state}`);
         
@@ -359,13 +530,13 @@ async function main(msg) {
             // Add null check for outputs before proceeding
             if (!outputs) {
                 log(`State handler for '${state}' returned null. Skipping TTS processing.`, 'warn');
-                node.status({ fill: "yellow", shape: "ring", text: `${alarmName} ${state} - no output` });
+                setStatus('yellow', `${alarmName} ${state} - no output`, 'ring');
                 node.done();
                 return null;
             }
             
             // Update node status to show successful processing
-            node.status({ fill: "green", shape: "dot", text: `${alarmName} ${state} processed` });
+            setStatus('green', `${alarmName} ${state} processed`);
             
             // Track alarm state changes in context
             const stateHistory = context.get('alarm_state_history') || [];
@@ -395,14 +566,14 @@ async function main(msg) {
             return outputs;
         } else {
             log(`Unhandled ${alarmName} state: ${state}. Please review the system.`, 'warn');
-            node.status({ fill: "yellow", shape: "ring", text: `${alarmName} unhandled: ${state}` });
+            setStatus('yellow', `${alarmName} unhandled: ${state}`, 'ring');
             node.done();
             return null;
         }
     } catch (error) {
-        const state = msg?.data?.event?.new_state?.state;
+        const state = msg?.data?.event?.new_state?.state || 'unknown';
         const alarmName = getAlarmName(msg);
-        await handleError(error, { alarmName, state, msg }, msg);
+        await handleError(error, { alarmName, state }, msg);
         node.done();
         return null;
     }

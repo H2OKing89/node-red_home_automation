@@ -63,7 +63,6 @@ const config = {
         google: [ // List of Google speaker entities for TTS
             "media_player.basement_bedroom_hub2",
             "media_player.family_room_home_mini",
-            "media_player.g5_dome_living_room_speaker",
             "media_player.kitchen_home_mini",
             "media_player.garage_home_mini"
         ]

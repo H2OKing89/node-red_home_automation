@@ -2,9 +2,14 @@
  * Node-RED Function: EAS and Announcement Message Handling
  * Refactored with SSML, Date Formatting & Dynamic Pauses
  *
- * Version: 1.9.0
+ * Version: 2.0.0
  * Author: Quentin
- * Date: 10/04/2025
+ * Date: 10/06/2025
+ * 
+ * Changelog v2.0.0:
+ * - Updated Google speaker TTS to use new tts.speak API (2025+ standard)
+ * - Replaced deprecated tts.google_say with tts.speak action
+ * - Added TTS service entity configuration
  * 
  * Changelog v1.9.0:
  * - Removed duplicate trackAlert() and cleanup handler definitions (bug fix)
@@ -35,7 +40,7 @@ const LOGGING_ENABLED = true; // Set to false to disable detailed logging
 const config = {
     devices: {
         sonos: [
-            "media_player.era_100",
+            "media_player.living_room_sonos_era_100",
             "media_player.bedroom_sonos_amp",
             "media_player.sonos_1"
         ],
@@ -45,6 +50,7 @@ const config = {
             "media_player.garage_home_mini"
         ]
     },
+    ttsService: "tts.google_translate_en_com", // TTS service entity for new API
     volumes: {
         sonos: 100,
         google: 1.0
@@ -280,10 +286,25 @@ function sanitizeText(t) {
         }); 
         await delay(1000);
         
-        // 7) Google TTS
+        // 7) Google TTS (using new tts.speak API)
         node.status({ fill: "blue", shape: "dot", text: "Announcing via Google..." });
         log(`Announcing to ${config.devices.google.length} Google devices`);
-        await sendAction("tts.google_say", config.devices.google, { message });
+        await sendWithRetry(() => new Promise((resolve, reject) => {
+            try {
+                node.send({ 
+                    payload: {
+                        action: "tts.speak",
+                        target: { entity_id: config.ttsService },
+                        data: {
+                            cache: true,
+                            media_player_entity_id: config.devices.google,
+                            message: message
+                        }
+                    }
+                });
+                resolve();
+            } catch (e) { reject(e); }
+        }));
         
         node.status({ fill: "green", shape: "dot", text: "Announcement completed" });
         log(`Weather alert announcement completed successfully: ${event}`);
@@ -294,7 +315,23 @@ function sanitizeText(t) {
         node.error('Processing error: ' + e.message, msg);
         logStructured('error', 'Weather alert processing failed', { error: e.message, stack: e.stack });
         const fb = config.genericErrorMessage;
-        await sendAction('tts.google_say', config.devices.google, { message: fb }).catch(() => { });
+        // Fallback error announcement using new TTS API
+        await sendWithRetry(() => new Promise((resolve, reject) => {
+            try {
+                node.send({ 
+                    payload: {
+                        action: "tts.speak",
+                        target: { entity_id: config.ttsService },
+                        data: {
+                            cache: false,
+                            media_player_entity_id: config.devices.google,
+                            message: fb
+                        }
+                    }
+                });
+                resolve();
+            } catch (e) { reject(e); }
+        })).catch(() => { });
         node.done();
         
     } finally {

@@ -1,6 +1,6 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.6.0
+ * Version: 1.6.1
  * Date: 2025-10-16
  * 
  * Description:
@@ -10,6 +10,9 @@
  * Supports multi-variant messages for natural, non-robotic notifications.
  * 
  * Changelog:
+ * - 1.6.1: Fixed node status display - "Queued" now shows green checkmark (✓) to indicate success,
+ *          clarified that TextBee's queue system means SMS is accepted and will be sent shortly,
+ *          all QUEUED/PENDING/ACCEPTED statuses now show green (success) instead of blue (info)
  * - 1.6.0: Added multi-variant message support with randomization (9-10 variants per event),
  *          prevents notification fatigue with conversational tone variations, added randomized
  *          signature selection, supports both array templates (new) and string templates (legacy),
@@ -654,13 +657,13 @@ async function sendSms(config, phoneNumber, message) {
         let statusColor = "green";
         
         if (result.status === "PENDING" || result.status === "QUEUED" || result.status === "ACCEPTED") {
-            statusText = `Queued: ${user.name}`;
-            statusColor = "blue";
+            statusText = `✓ Queued: ${user.name}`;
+            statusColor = "green";  // Green because queued = success with TextBee
         } else if (result.status === "SENT") {
-            statusText = `Sent: ${user.name}`;
+            statusText = `✓ Sent: ${user.name}`;
             statusColor = "green";
         } else if (result.status === "DELIVERED") {
-            statusText = `Delivered: ${user.name}`;
+            statusText = `✓ Delivered: ${user.name}`;
             statusColor = "green";
         } else if (result.status === "UNKNOWN") {
             statusText = `Sent: ${user.name} (status unknown)`;

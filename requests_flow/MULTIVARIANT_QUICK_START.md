@@ -8,11 +8,13 @@
 ## 🎯 What Changed
 
 **Before (v1.5.0)**:
+
 ```json
 "request_approved": "Your request for \"{title}\" has been approved!"
 ```
 
 **After (v1.6.0)**:
+
 ```json
 "request_approved": [
   "✅ Great news, {name}! \"{title}\" got the green light. ⚡️",
@@ -63,6 +65,7 @@ message = `${message} ${signature}`;
 ```
 
 **Example Output**:
+
 ```
 ✅ Great news, Joe! "Breaking Bad" got the green light. ⚡️ — 🎬 Jellyseerr
 ```
@@ -74,12 +77,14 @@ message = `${message} ${signature}`;
 ### 1. Update Config (3 options)
 
 **Option A: Copy production config**
+
 ```bash
 # Use pre-made config with all 70 variants
 cp config/TEXTBEE_CONFIG.json.example config/TEXTBEE_CONFIG.json
 ```
 
 **Option B: Copy example and customize**
+
 ```bash
 # Start with documented example
 cp config/TEXTBEE_CONFIG_MULTIVARIANT_EXAMPLE.jsonc config/TEXTBEE_CONFIG.json
@@ -87,6 +92,7 @@ cp config/TEXTBEE_CONFIG_MULTIVARIANT_EXAMPLE.jsonc config/TEXTBEE_CONFIG.json
 ```
 
 **Option C: Keep current config (works as-is!)**
+
 - v1.6.0 code is backward compatible
 - String templates still work
 - Migrate gradually when ready
@@ -103,9 +109,11 @@ cp config/TEXTBEE_CONFIG_MULTIVARIANT_EXAMPLE.jsonc config/TEXTBEE_CONFIG.json
 ## ✅ Testing
 
 **Send multiple notifications**:
+
 1. Approve 5+ requests in a row
 2. Verify different messages each time
 3. Check debug logs:
+
    ```
    [debug] Selected variant 3/10 for MEDIA_APPROVED
    [debug] Added signature: — 🎬 Jellyseerr

@@ -1,6 +1,6 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.4.0
+ * Version: 1.5.0
  * Date: 2025-10-15
  * 
  * Description:
@@ -9,6 +9,9 @@
  * Only notifies users directly involved in the request/issue (requestor, reporter, commenter).
  * 
  * Changelog:
+ * - 1.5.0: Added Setup/Close tab lifecycle management, periodic context cleanup, statistics
+ *          tracking, node.trace() for deep debugging, memory leak prevention via automatic
+ *          deduplication key expiration
  * - 1.4.0: Fixed node.send(msg) to properly pass messages downstream, added case-insensitive
  *          user lookup, phone number normalization (E.164), duplicate squelch window,
  *          corrected timeout default to 30000ms (was 5000ms)
@@ -40,6 +43,11 @@
  *   - TEXTBEE_CONFIG: Config object or JSON string
  * - Timeout: 30 seconds (for HTTP requests)
  * - Duplicate Squelch: 60 seconds (configurable via duplicate_squelch_ms)
+ * 
+ * Node-RED Setup:
+ * - Setup Tab: Initialize state, validate config, pre-warm caches
+ * - Main Tab: This file (message processing)
+ * - Close Tab: Cleanup deduplication keys, log statistics
  */
 
 // ============================================================================
@@ -188,6 +196,7 @@ function findUser(config, email, username) {
     const normalizedUsername = normalize(username);
     
     log(`Looking up user by ${lookupBy}: email="${email}", username="${username}"`, "debug");
+    node.trace(`Normalized: email="${normalizedEmail}", username="${normalizedUsername}"`);
     
     for (const user of config.users) {
         const userEmail = normalize(user.jellyseerr_email);
@@ -336,6 +345,7 @@ async function sendSms(config, phoneNumber, message) {
     log(`Sending SMS to ${phoneNumber} via TextBee`, "info");
     log(`TextBee URL: ${url}`, "debug");
     log(`TextBee Payload: ${JSON.stringify(payload)}`, "debug");
+    node.trace(`TextBee full request payload: ${JSON.stringify(payload, null, 2)}`);
     
     const response = await axios.post(url, payload, {
         headers: {
@@ -355,6 +365,7 @@ async function sendSms(config, phoneNumber, message) {
     log(`TextBee full response: ${JSON.stringify(response.data)}`, "info");
     log(`TextBee response type: ${typeof response.data}`, "debug");
     log(`TextBee response keys: ${Object.keys(response.data || {}).join(', ')}`, "info");
+    node.trace(`TextBee raw response: ${JSON.stringify(response.data, null, 2)}`);
     
     // Try multiple response structure patterns
     let responseData = null;
@@ -480,6 +491,32 @@ async function sendSms(config, phoneNumber, message) {
             return null;
         }
         
+        // Periodic cleanup of old deduplication keys (every hour)
+        const lastCleanup = context.get("last_cleanup") || 0;
+        const cleanupInterval = 60 * 60 * 1000; // 1 hour
+        
+        if ((now - lastCleanup) > cleanupInterval) {
+            const allKeys = context.keys();
+            const maxAge = (config.duplicate_squelch_ms || 60000) * 2; // 2x squelch window
+            let cleaned = 0;
+            
+            allKeys.forEach(key => {
+                // Only clean dedupe keys (format: "EVENT:id")
+                if (key.includes(':') && key !== 'last_cleanup' && key !== 'sms_sent_count') {
+                    const timestamp = context.get(key);
+                    if (timestamp && (now - timestamp) > maxAge) {
+                        context.set(key, undefined);
+                        cleaned++;
+                    }
+                }
+            });
+            
+            context.set("last_cleanup", now);
+            if (cleaned > 0) {
+                log(`Cleaned up ${cleaned} expired deduplication keys`, "debug");
+            }
+        }
+        
         // Load configuration
         const config = loadConfig();
         if (!config) {
@@ -563,6 +600,11 @@ async function sendSms(config, phoneNumber, message) {
         
         // Store timestamp to prevent duplicates
         context.set(dedupeKey, now);
+        
+        // Track statistics
+        const smsCount = (context.get("sms_sent_count") || 0) + 1;
+        context.set("sms_sent_count", smsCount);
+        log(`Total SMS sent this session: ${smsCount}`, "debug");
         
         // Update node status with SMS status
         let statusText = `Sent to ${user.name}`;

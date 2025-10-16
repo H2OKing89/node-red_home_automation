@@ -105,8 +105,8 @@ return [[m1, m2]]; // both go to output 1 in order
 
 ## 2) Async Work (The Right Way)
 
-> **Critical Rule:** If your Function uses **`node.send()`** (async pattern), you **MUST** call 
-> **`node.done()`** when finished. This tells Node-RED the message is complete and enables proper 
+> **Critical Rule:** If your Function uses **`node.send()`** (async pattern), you **MUST** call
+> **`node.done()`** when finished. This tells Node-RED the message is complete and enables proper
 > flow tracking. Synchronous functions that `return msg` do NOT need `node.done()`.
 
 ### 2.1 Callback style
@@ -187,8 +187,8 @@ node.on('close', () => {
 });
 ```
 
-> **Note:** `setTimeout` and `setInterval` timers are **automatically cleared** when the flow is 
-> redeployed or the node is stopped. However, you should still clean them up explicitly in 
+> **Note:** `setTimeout` and `setInterval` timers are **automatically cleared** when the flow is
+> redeployed or the node is stopped. However, you should still clean them up explicitly in
 > `node.on('close')` for proper async work tracking and to avoid race conditions during shutdown.
 
 ([Node-RED][1])

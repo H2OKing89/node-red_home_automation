@@ -1,14 +1,19 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.5.0
- * Date: 2025-10-15
+ * Version: 1.6.0
+ * Date: 2025-10-16
  * 
  * Description:
  * Sends targeted SMS notifications via TextBee API for Jellyseerr webhook events.
  * Maps Jellyseerr users (by email or username) to phone numbers from TEXTBEE_CONFIG.
  * Only notifies users directly involved in the request/issue (requestor, reporter, commenter).
+ * Supports multi-variant messages for natural, non-robotic notifications.
  * 
  * Changelog:
+ * - 1.6.0: Added multi-variant message support with randomization (9-10 variants per event),
+ *          prevents notification fatigue with conversational tone variations, added randomized
+ *          signature selection, supports both array templates (new) and string templates (legacy),
+ *          enhanced message personality and humor
  * - 1.5.0: Added Setup/Close tab lifecycle management, periodic context cleanup, statistics
  *          tracking, node.trace() for deep debugging, memory leak prevention via automatic
  *          deduplication key expiration
@@ -238,7 +243,7 @@ function extractMediaTitle(payload) {
 }
 
 /**
- * Generate SMS message from template
+ * Generate SMS message from template with multi-variant support
  * @param {object} config - TextBee configuration
  * @param {string} eventType - Jellyseerr event type
  * @param {object} user - User configuration
@@ -258,45 +263,55 @@ function generateSmsMessage(config, eventType, user, payload) {
         "{issue_type}": payload.issue?.issue_type || "Unknown"
     };
     
-    let template = null;
+    let templatePool = null;
+    let fallbackMessage = null;
     
-    // Map event types to templates
+    // Map event types to template pools (arrays) or single strings
     switch (eventType) {
         case "MEDIA_AUTO_APPROVED":
         case "MEDIA_APPROVED":
-            template = templates.request_approved || "Hi {name}, your request for \"{title}\" has been approved and will begin downloading soon! — Jellyseerr";
+            templatePool = templates.request_approved;
+            fallbackMessage = "Hi {name}, your request for \"{title}\" has been approved and will begin downloading soon! — Jellyseerr";
             break;
             
         case "MEDIA_PENDING":
-            template = templates.request_added || "Hi {name}, your request for \"{title}\" has been added to the queue. — Jellyseerr";
+            templatePool = templates.request_added;
+            fallbackMessage = "Hi {name}, your request for \"{title}\" has been added to the queue. — Jellyseerr";
             break;
             
         case "MEDIA_DECLINED":
-            template = templates.request_declined || "Hi {name}, your request for \"{title}\" has been declined. Please check with your media administrator for more information. — Jellyseerr";
+            templatePool = templates.request_declined;
+            fallbackMessage = "Hi {name}, your request for \"{title}\" has been declined. Please check with your media administrator for more information. — Jellyseerr";
             break;
             
         case "MEDIA_AVAILABLE":
-            template = templates.request_ready || "Hi {name}, \"{title}\" is now available to watch! — Jellyseerr";
+            templatePool = templates.request_ready;
+            fallbackMessage = "Hi {name}, \"{title}\" is now available to watch! — Jellyseerr";
             break;
             
         case "MEDIA_FAILED":
-            template = templates.request_failed || "Hi {name}, there was an issue processing your request for \"{title}\". — Jellyseerr";
+            templatePool = templates.request_failed;
+            fallbackMessage = "Hi {name}, there was an issue processing your request for \"{title}\". — Jellyseerr";
             break;
             
         case "ISSUE_CREATED":
-            template = templates.issue_created || "Hi {name}, an issue was reported for \"{title}\" by {username}. — Jellyseerr";
+            templatePool = templates.issue_created;
+            fallbackMessage = "Hi {name}, an issue was reported for \"{title}\" by {username}. — Jellyseerr";
             break;
             
         case "ISSUE_COMMENT":
-            template = templates.issue_comment || "Hi {name}, {username} commented on the issue for \"{title}\". — Jellyseerr";
+            templatePool = templates.issue_comment;
+            fallbackMessage = "Hi {name}, {username} commented on the issue for \"{title}\". — Jellyseerr";
             break;
             
         case "ISSUE_RESOLVED":
-            template = templates.issue_resolved || "Hi {name}, the issue for \"{title}\" has been resolved. — Jellyseerr";
+            templatePool = templates.issue_resolved;
+            fallbackMessage = "Hi {name}, the issue for \"{title}\" has been resolved. — Jellyseerr";
             break;
             
         case "ISSUE_REOPENED":
-            template = templates.issue_reopened || "Hi {name}, the issue for \"{title}\" has been reopened. — Jellyseerr";
+            templatePool = templates.issue_reopened;
+            fallbackMessage = "Hi {name}, the issue for \"{title}\" has been reopened. — Jellyseerr";
             break;
             
         default:
@@ -304,14 +319,42 @@ function generateSmsMessage(config, eventType, user, payload) {
             return null;
     }
     
-    if (!template) {
+    // Select template: handle both arrays (multi-variant) and strings (legacy)
+    let selectedTemplate = null;
+    
+    if (Array.isArray(templatePool) && templatePool.length > 0) {
+        // Multi-variant: pick random message from pool
+        const randomIndex = Math.floor(Math.random() * templatePool.length);
+        selectedTemplate = templatePool[randomIndex];
+        log(`Selected variant ${randomIndex + 1}/${templatePool.length} for ${eventType}`, "debug");
+    } else if (typeof templatePool === 'string') {
+        // Legacy: single string template
+        selectedTemplate = templatePool;
+        log(`Using single template for ${eventType}`, "debug");
+    } else {
+        // Fallback to default message
+        selectedTemplate = fallbackMessage;
+        log(`Using fallback template for ${eventType}`, "debug");
+    }
+    
+    if (!selectedTemplate) {
         return null;
     }
     
     // Replace all placeholders
-    let message = template;
+    let message = selectedTemplate;
     for (const [placeholder, value] of Object.entries(replacements)) {
         message = message.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+    }
+    
+    // Add signature if configured
+    const signatures = config.signatures;
+    if (signatures && signatures.length > 0) {
+        // Random signature selection
+        const randomSigIndex = Math.floor(Math.random() * signatures.length);
+        const signature = signatures[randomSigIndex];
+        message = `${message} ${signature}`;
+        log(`Added signature: ${signature}`, "debug");
     }
     
     log(`Generated SMS: "${message}"`, "debug");
@@ -478,6 +521,13 @@ async function sendSms(config, phoneNumber, message) {
             return null;
         }
         
+        // Load configuration first (needed for squelch window)
+        const config = loadConfig();
+        if (!config) {
+            node.status({ fill: "red", shape: "dot", text: "Config load failed" });
+            return null;
+        }
+        
         // Check for duplicate notifications within squelch window
         const requestId = payload.request?.request_id || payload.issue?.id || extractMediaTitle(payload);
         const dedupeKey = `${eventType}:${requestId}`;
@@ -515,13 +565,6 @@ async function sendSms(config, phoneNumber, message) {
             if (cleaned > 0) {
                 log(`Cleaned up ${cleaned} expired deduplication keys`, "debug");
             }
-        }
-        
-        // Load configuration
-        const config = loadConfig();
-        if (!config) {
-            node.status({ fill: "red", shape: "dot", text: "Config load failed" });
-            return null;
         }
         
         // Determine who to notify based on event type

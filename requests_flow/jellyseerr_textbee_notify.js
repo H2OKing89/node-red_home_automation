@@ -1,0 +1,616 @@
+/**
+ * Script Name: Jellyseerr TextBee SMS Notification Handler
+ * Version: 1.4.0
+ * Date: 2025-10-15
+ * 
+ * Description:
+ * Sends targeted SMS notifications via TextBee API for Jellyseerr webhook events.
+ * Maps Jellyseerr users (by email or username) to phone numbers from TEXTBEE_CONFIG.
+ * Only notifies users directly involved in the request/issue (requestor, reporter, commenter).
+ * 
+ * Changelog:
+ * - 1.4.0: Fixed node.send(msg) to properly pass messages downstream, added case-insensitive
+ *          user lookup, phone number normalization (E.164), duplicate squelch window,
+ *          corrected timeout default to 30000ms (was 5000ms)
+ * - 1.3.0: Added support for MEDIA_DECLINED events, notifies users when their media
+ *          requests are declined by administrators
+ * - 1.2.1: Improved default fallback messages for all event types, now MEDIA_APPROVED has
+ *          distinct default message instead of falling back to request_added
+ * - 1.2.0: Added native TextBee response format support (smsBatchId, success field),
+ *          infers QUEUED/ACCEPTED status from success:true responses, handles TextBee's
+ *          batch operation model, improved status display for queued messages
+ * - 1.1.2: Enhanced debug logging to INFO level for response inspection, added detailed field
+ *          enumeration when standard fields not found, logs all response keys and values
+ * - 1.1.1: Enhanced response parsing to handle multiple TextBee API response structures,
+ *          added comprehensive debug logging, multiple fallback patterns for field extraction,
+ *          supports various field name variations (_id/id/messageId, status/state, etc.)
+ * - 1.1.0: Added TextBee API response validation, checks SMS status (PENDING/SENT/DELIVERED/FAILED),
+ *          improved error handling for API failures, enhanced status indicators with SMS state,
+ *          added sms_id and sms_status to msg.textbee_result for downstream tracking
+ * - 1.0.1: Fixed config loading to support both env.get() and global.get(), handles both
+ *          JSON strings and objects
+ * - 1.0.0: Initial implementation with user mapping, template support, and TextBee API integration
+ * 
+ * Setup Requirements:
+ * - External Modules: None required
+ * - Global Context (settings.js):
+ *   - axios: require('axios')
+ *   - TEXTBEE_CONFIG: Config object or JSON.stringify(config)
+ * - OR Environment Variables (Node-RED UI):
+ *   - TEXTBEE_CONFIG: Config object or JSON string
+ * - Timeout: 30 seconds (for HTTP requests)
+ * - Duplicate Squelch: 60 seconds (configurable via duplicate_squelch_ms)
+ */
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const LOGGING_ENABLED = true;
+
+// Events that should trigger SMS notifications
+const SMS_EVENTS = [
+    "MEDIA_AUTO_APPROVED",
+    "MEDIA_APPROVED",
+    "MEDIA_AVAILABLE",
+    "MEDIA_PENDING",
+    "MEDIA_DECLINED",
+    "MEDIA_FAILED",
+    "ISSUE_CREATED",
+    "ISSUE_COMMENT",
+    "ISSUE_REOPENED",
+    "ISSUE_RESOLVED"
+];
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Logging helper with conditional output
+ * @param {string} message - Message to log
+ * @param {string} level - Log level (info, warn, error, debug)
+ */
+function log(message, level = "info") {
+    if (!LOGGING_ENABLED) return;
+    
+    if (level === "error") {
+        node.error(message);
+    } else if (level === "warn") {
+        node.warn(message);
+    } else if (level === "debug") {
+        node.debug(message);
+    } else {
+        node.log(message);
+    }
+}
+
+/**
+ * Load and parse TEXTBEE_CONFIG from environment or global context
+ * @returns {object|null} Parsed config or null on error
+ */
+function loadConfig() {
+    try {
+        let config = null;
+        
+        // Try environment variable first (Node-RED UI: Settings → Function → Environment Variables)
+        const envConfig = env.get("TEXTBEE_CONFIG");
+        if (envConfig) {
+            log("Loading config from environment variable", "debug");
+            // If it's already an object, use it directly
+            if (typeof envConfig === 'object') {
+                config = envConfig;
+            } else {
+                // Otherwise parse as JSON string
+                config = JSON.parse(envConfig);
+            }
+        }
+        
+        // Fallback to global context (settings.js functionGlobalContext)
+        if (!config) {
+            log("Trying global context for config", "debug");
+            const globalConfig = global.get('TEXTBEE_CONFIG');
+            if (globalConfig) {
+                if (typeof globalConfig === 'object') {
+                    config = globalConfig;
+                } else {
+                    config = JSON.parse(globalConfig);
+                }
+            }
+        }
+        
+        if (!config) {
+            log("TEXTBEE_CONFIG not found in environment or global context", "error");
+            return null;
+        }
+        
+        // Validate required config fields
+        if (!config.textbee || !config.textbee.api_key || !config.textbee.device_id) {
+            log("Invalid TEXTBEE_CONFIG: missing required TextBee API fields", "error");
+            return null;
+        }
+        
+        if (!config.users || !Array.isArray(config.users) || config.users.length === 0) {
+            log("Invalid TEXTBEE_CONFIG: no users configured", "error");
+            return null;
+        }
+        
+        log(`Loaded config with ${config.users.length} users`, "debug");
+        return config;
+        
+    } catch (err) {
+        log(`Failed to load TEXTBEE_CONFIG: ${err.message}`, "error");
+        return null;
+    }
+}
+
+/**
+ * Normalize string for case-insensitive comparison
+ * @param {string} str - String to normalize
+ * @returns {string} Trimmed lowercase string
+ */
+function normalize(str) {
+    return (str || '').trim().toLowerCase();
+}
+
+/**
+ * Normalize phone number to E.164 format
+ * @param {string} phone - Phone number in various formats
+ * @returns {string} E.164 format phone (+1XXXXXXXXXX) or original if can't normalize
+ */
+function normalizePhone(phone) {
+    const digits = (phone || '').replace(/\D/g, '');
+    
+    // Already E.164 format (11 digits starting with 1)
+    if (digits.startsWith('1') && digits.length === 11) {
+        return `+${digits}`;
+    }
+    
+    // US/Canada 10-digit number
+    if (digits.length === 10) {
+        return `+1${digits}`;
+    }
+    
+    // Leave as-is if already +1... format or non-US
+    return phone;
+}
+
+/**
+ * Find user in config by Jellyseerr identifier (case-insensitive)
+ * @param {object} config - TextBee configuration
+ * @param {string} email - User's Jellyseerr email
+ * @param {string} username - User's Jellyseerr username
+ * @returns {object|null} Matched user config or null
+ */
+function findUser(config, email, username) {
+    const lookupBy = config.jellyseerr_lookup_by || "email";
+    const normalizedEmail = normalize(email);
+    const normalizedUsername = normalize(username);
+    
+    log(`Looking up user by ${lookupBy}: email="${email}", username="${username}"`, "debug");
+    
+    for (const user of config.users) {
+        const userEmail = normalize(user.jellyseerr_email);
+        const userUsername = normalize(user.jellyseerr_username);
+        
+        if (lookupBy === "email" && normalizedEmail && userEmail === normalizedEmail) {
+            log(`Matched user by email: ${user.name}`, "debug");
+            return user;
+        }
+        
+        if (lookupBy === "username" && normalizedUsername && userUsername === normalizedUsername) {
+            log(`Matched user by username: ${user.name}`, "debug");
+            return user;
+        }
+        
+        // Fallback: try both if primary lookup fails
+        if (normalizedEmail && userEmail === normalizedEmail) {
+            log(`Matched user by email (fallback): ${user.name}`, "debug");
+            return user;
+        }
+        
+        if (normalizedUsername && userUsername === normalizedUsername) {
+            log(`Matched user by username (fallback): ${user.name}`, "debug");
+            return user;
+        }
+    }
+    
+    log(`No user found for email="${email}", username="${username}"`, "warn");
+    return null;
+}
+
+/**
+ * Extract media title from payload
+ * @param {object} payload - Jellyseerr webhook payload
+ * @returns {string} Media title or "Unknown Title"
+ */
+function extractMediaTitle(payload) {
+    return payload.subject || payload.media?.title || "Unknown Title";
+}
+
+/**
+ * Generate SMS message from template
+ * @param {object} config - TextBee configuration
+ * @param {string} eventType - Jellyseerr event type
+ * @param {object} user - User configuration
+ * @param {object} payload - Jellyseerr webhook payload
+ * @returns {string|null} Generated SMS message or null
+ */
+function generateSmsMessage(config, eventType, user, payload) {
+    const templates = config.templates || {};
+    const title = extractMediaTitle(payload);
+    const userName = user.name || user.jellyseerr_username || "there";
+    
+    // Template placeholders: {name}, {title}, {username}, {issue_type}
+    const replacements = {
+        "{name}": userName,
+        "{title}": title,
+        "{username}": payload.request?.requestedBy_username || payload.issue?.reportedBy_username || "Unknown",
+        "{issue_type}": payload.issue?.issue_type || "Unknown"
+    };
+    
+    let template = null;
+    
+    // Map event types to templates
+    switch (eventType) {
+        case "MEDIA_AUTO_APPROVED":
+        case "MEDIA_APPROVED":
+            template = templates.request_approved || "Hi {name}, your request for \"{title}\" has been approved and will begin downloading soon! — Jellyseerr";
+            break;
+            
+        case "MEDIA_PENDING":
+            template = templates.request_added || "Hi {name}, your request for \"{title}\" has been added to the queue. — Jellyseerr";
+            break;
+            
+        case "MEDIA_DECLINED":
+            template = templates.request_declined || "Hi {name}, your request for \"{title}\" has been declined. Please check with your media administrator for more information. — Jellyseerr";
+            break;
+            
+        case "MEDIA_AVAILABLE":
+            template = templates.request_ready || "Hi {name}, \"{title}\" is now available to watch! — Jellyseerr";
+            break;
+            
+        case "MEDIA_FAILED":
+            template = templates.request_failed || "Hi {name}, there was an issue processing your request for \"{title}\". — Jellyseerr";
+            break;
+            
+        case "ISSUE_CREATED":
+            template = templates.issue_created || "Hi {name}, an issue was reported for \"{title}\" by {username}. — Jellyseerr";
+            break;
+            
+        case "ISSUE_COMMENT":
+            template = templates.issue_comment || "Hi {name}, {username} commented on the issue for \"{title}\". — Jellyseerr";
+            break;
+            
+        case "ISSUE_RESOLVED":
+            template = templates.issue_resolved || "Hi {name}, the issue for \"{title}\" has been resolved. — Jellyseerr";
+            break;
+            
+        case "ISSUE_REOPENED":
+            template = templates.issue_reopened || "Hi {name}, the issue for \"{title}\" has been reopened. — Jellyseerr";
+            break;
+            
+        default:
+            log(`No template for event type: ${eventType}`, "warn");
+            return null;
+    }
+    
+    if (!template) {
+        return null;
+    }
+    
+    // Replace all placeholders
+    let message = template;
+    for (const [placeholder, value] of Object.entries(replacements)) {
+        message = message.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+    }
+    
+    log(`Generated SMS: "${message}"`, "debug");
+    return message;
+}
+
+/**
+ * Send SMS via TextBee API
+ * @param {object} config - TextBee configuration
+ * @param {string} phoneNumber - Recipient phone number
+ * @param {string} message - SMS message content
+ * @returns {Promise<object>} API response with validated data
+ */
+async function sendSms(config, phoneNumber, message) {
+    const axios = global.get('axios');
+    
+    if (!axios) {
+        throw new Error('axios not available in global context');
+    }
+    
+    const tb = config.textbee;
+    const url = `${tb.base_url}${tb.send_path_template.replace('{deviceId}', tb.device_id)}`;
+    
+    const payload = {
+        recipients: [phoneNumber],
+        message: message,
+        send_at: null, // Send immediately
+        sender: tb.default_sender || null
+    };
+    
+    log(`Sending SMS to ${phoneNumber} via TextBee`, "info");
+    log(`TextBee URL: ${url}`, "debug");
+    log(`TextBee Payload: ${JSON.stringify(payload)}`, "debug");
+    
+    const response = await axios.post(url, payload, {
+        headers: {
+            'x-api-key': tb.api_key,
+            'Content-Type': 'application/json'
+        },
+        timeout: tb.timeout_ms || 30000  // Default 30 seconds
+    });
+    
+    // Validate response status code
+    if (response.status < 200 || response.status >= 300) {
+        throw new Error(`TextBee API returned status ${response.status}: ${JSON.stringify(response.data)}`);
+    }
+    
+    // Log full response for debugging (CRITICAL for troubleshooting)
+    log(`TextBee API HTTP Status: ${response.status}`, "info");
+    log(`TextBee full response: ${JSON.stringify(response.data)}`, "info");
+    log(`TextBee response type: ${typeof response.data}`, "debug");
+    log(`TextBee response keys: ${Object.keys(response.data || {}).join(', ')}`, "info");
+    
+    // Try multiple response structure patterns
+    let responseData = null;
+    if (response.data?.data) {
+        // Pattern 1: { data: { _id, status, ... } }
+        responseData = response.data.data;
+        log("Using response.data.data structure", "debug");
+    } else if (response.data?._id || response.data?.id || response.data?.status) {
+        // Pattern 2: { _id, status, ... } (direct structure)
+        responseData = response.data;
+        log("Using response.data structure", "debug");
+    } else if (Array.isArray(response.data) && response.data.length > 0) {
+        // Pattern 3: [{ _id, status, ... }] (array)
+        responseData = response.data[0];
+        log("Using response.data[0] structure", "debug");
+    } else {
+        // Fallback: use whatever we got
+        responseData = response.data;
+        log("Using fallback response.data", "debug");
+    }
+    
+    log(`Parsed response data: ${JSON.stringify(responseData)}`, "debug");
+    
+    // Validate response structure
+    if (!responseData) {
+        throw new Error('TextBee API returned empty response');
+    }
+    
+    // Extract fields with multiple fallback patterns
+    const smsStatus = responseData.status || responseData.state || null;
+    const smsId = responseData._id || responseData.id || responseData.messageId || responseData.message_id || responseData.smsBatchId || null;
+    const recipients = responseData.recipients || responseData.to || [phoneNumber];
+    const messageText = responseData.message || responseData.text || message;
+    const createdAt = responseData.createdAt || responseData.created_at || responseData.timestamp || new Date().toISOString();
+    
+    // TextBee-specific: Infer status from success field and message
+    let inferredStatus = smsStatus;
+    if (!inferredStatus && responseData.success === true) {
+        // TextBee returns success:true with a message instead of status
+        if (responseData.message && responseData.message.includes('queue')) {
+            inferredStatus = 'QUEUED';
+            log(`Inferred status from TextBee response: QUEUED (based on success=true and message="${responseData.message}")`, "debug");
+        } else if (responseData.message && responseData.message.includes('sent')) {
+            inferredStatus = 'SENT';
+            log(`Inferred status from TextBee response: SENT (based on message="${responseData.message}")`, "debug");
+        } else {
+            inferredStatus = 'ACCEPTED';
+            log(`Inferred status from TextBee response: ACCEPTED (based on success=true)`, "debug");
+        }
+    }
+    
+    log(`Extracted: status="${inferredStatus}", id="${smsId}", recipients=${JSON.stringify(recipients)}`, "debug");
+    
+    // If we didn't find standard fields, log everything we got
+    if (!inferredStatus && !smsId) {
+        log(`⚠️ Could not extract standard fields from response. Full response data:`, "warn");
+        log(`Response keys: ${Object.keys(responseData).join(', ')}`, "warn");
+        for (const [key, value] of Object.entries(responseData)) {
+            log(`  ${key}: ${JSON.stringify(value)}`, "warn");
+        }
+    }
+    
+    if (inferredStatus) {
+        log(`SMS status: ${inferredStatus} (ID: ${smsId || 'batch'})`, "info");
+        
+        // Warn on non-optimal statuses but don't fail
+        if (inferredStatus === 'FAILED' || inferredStatus === 'ERROR') {
+            throw new Error(`TextBee SMS marked as ${inferredStatus} (ID: ${smsId})`);
+        } else if (inferredStatus === 'REJECTED') {
+            throw new Error(`TextBee SMS was REJECTED (ID: ${smsId})`);
+        } else if (inferredStatus === 'PENDING' || inferredStatus === 'QUEUED' || inferredStatus === 'ACCEPTED') {
+            log(`SMS queued for delivery (ID: ${smsId})`, "info");
+        } else if (inferredStatus === 'SENT' || inferredStatus === 'DELIVERED') {
+            log(`SMS ${inferredStatus.toLowerCase()} successfully (ID: ${smsId})`, "info");
+        } else {
+            log(`SMS has status: ${inferredStatus} (ID: ${smsId})`, "info");
+        }
+    } else {
+        log("No status field found in response", "warn");
+    }
+    
+    return {
+        success: true,
+        status: inferredStatus || 'UNKNOWN',
+        sms_id: smsId,
+        recipients: Array.isArray(recipients) ? recipients : [recipients],
+        message: messageText,
+        created_at: createdAt,
+        raw_response: responseData
+    };
+}
+
+// ============================================================================
+// MAIN PROCESSING
+// ============================================================================
+
+(async () => {
+    try {
+        node.status({ fill: "blue", shape: "ring", text: "Processing SMS..." });
+        
+        const payload = msg.payload || {};
+        const eventType = payload.notification_type || payload.event;
+        
+        log(`Processing event: ${eventType}`);
+        
+        // Check if this event should trigger SMS
+        if (!SMS_EVENTS.includes(eventType)) {
+            log(`Event type "${eventType}" not configured for SMS notifications`, "debug");
+            node.status({ fill: "grey", shape: "dot", text: "Event not SMS-enabled" });
+            return null;
+        }
+        
+        // Check for duplicate notifications within squelch window
+        const requestId = payload.request?.request_id || payload.issue?.id || extractMediaTitle(payload);
+        const dedupeKey = `${eventType}:${requestId}`;
+        const now = Date.now();
+        const lastSent = context.get(dedupeKey);
+        const squelchMs = config.duplicate_squelch_ms || 60000; // 60 seconds default
+        
+        if (lastSent && (now - lastSent) < squelchMs) {
+            log(`Squelched duplicate notification within ${squelchMs}ms for ${dedupeKey}`, "info");
+            node.status({ fill: "grey", shape: "dot", text: "Duplicate squelched" });
+            return null;
+        }
+        
+        // Load configuration
+        const config = loadConfig();
+        if (!config) {
+            node.status({ fill: "red", shape: "dot", text: "Config load failed" });
+            return null;
+        }
+        
+        // Determine who to notify based on event type
+        let targetEmail = null;
+        let targetUsername = null;
+        
+        if (payload.request && (eventType.startsWith("MEDIA_") || eventType === "REQUEST_")) {
+            // Request-related events: notify the requester
+            targetEmail = payload.request.requestedBy_email;
+            targetUsername = payload.request.requestedBy_username;
+            log(`Target user from request: ${targetEmail} / ${targetUsername}`, "debug");
+            
+        } else if (payload.issue && eventType.startsWith("ISSUE_")) {
+            // Issue events: notify the issue reporter
+            targetEmail = payload.issue.reportedBy_email;
+            targetUsername = payload.issue.reportedBy_username;
+            log(`Target user from issue: ${targetEmail} / ${targetUsername}`, "debug");
+            
+        } else if (payload.comment && eventType === "ISSUE_COMMENT") {
+            // Comment events: notify the original issue reporter (not the commenter)
+            targetEmail = payload.issue?.reportedBy_email;
+            targetUsername = payload.issue?.reportedBy_username;
+            log(`Target user from issue (comment event): ${targetEmail} / ${targetUsername}`, "debug");
+        }
+        
+        if (!targetEmail && !targetUsername) {
+            log("No target user identified in payload", "warn");
+            node.status({ fill: "yellow", shape: "dot", text: "No target user" });
+            return null;
+        }
+        
+        // Find user in configuration
+        const user = findUser(config, targetEmail, targetUsername);
+        
+        if (!user) {
+            log(`User not found in config: ${targetEmail} / ${targetUsername}`, "warn");
+            node.status({ fill: "yellow", shape: "dot", text: "User not in config" });
+            return null;
+        }
+        
+        // Check user's preferred contact method
+        if (user.preferred_contact && user.preferred_contact !== "sms") {
+            log(`User ${user.name} prefers ${user.preferred_contact}, skipping SMS`, "info");
+            node.status({ fill: "grey", shape: "dot", text: `User prefers ${user.preferred_contact}` });
+            return null;
+        }
+        
+        if (!user.phone) {
+            log(`User ${user.name} has no phone number configured`, "warn");
+            node.status({ fill: "yellow", shape: "dot", text: "No phone number" });
+            return null;
+        }
+        
+        // Normalize phone number to E.164 format
+        const normalizedPhone = normalizePhone(user.phone);
+        log(`Normalized phone: ${user.phone} → ${normalizedPhone}`, "debug");
+        
+        // Generate SMS message
+        const message = generateSmsMessage(config, eventType, user, payload);
+        
+        if (!message) {
+            log("Failed to generate SMS message", "warn");
+            node.status({ fill: "yellow", shape: "dot", text: "No message template" });
+            return null;
+        }
+        
+        // Send SMS via TextBee API
+        const result = await sendSms(config, normalizedPhone, message);
+        
+        // Validate SMS was accepted
+        if (!result.success) {
+            throw new Error(`SMS send failed: ${result.status}`);
+        }
+        
+        log(`SMS ${result.status} for ${user.name} (${normalizedPhone}) - ID: ${result.sms_id}`, "info");
+        
+        // Store timestamp to prevent duplicates
+        context.set(dedupeKey, now);
+        
+        // Update node status with SMS status
+        let statusText = `Sent to ${user.name}`;
+        let statusColor = "green";
+        
+        if (result.status === "PENDING" || result.status === "QUEUED" || result.status === "ACCEPTED") {
+            statusText = `Queued: ${user.name}`;
+            statusColor = "blue";
+        } else if (result.status === "SENT") {
+            statusText = `Sent: ${user.name}`;
+            statusColor = "green";
+        } else if (result.status === "DELIVERED") {
+            statusText = `Delivered: ${user.name}`;
+            statusColor = "green";
+        } else if (result.status === "UNKNOWN") {
+            statusText = `Sent: ${user.name} (status unknown)`;
+            statusColor = "yellow";
+        }
+        
+        node.status({ fill: statusColor, shape: "dot", text: statusText });
+        
+        // Attach result to message for downstream processing
+        msg.textbee_result = {
+            success: true,
+            user: user.name,
+            phone: normalizedPhone,
+            message: message,
+            event: eventType,
+            sms_id: result.sms_id,
+            sms_status: result.status,
+            created_at: result.created_at,
+            api_response: result.raw_response
+        };
+        
+        // Send message downstream to next node
+        node.send(msg);
+        return null;
+        
+    } catch (err) {
+        log(`SMS Handler Error: ${err.message}`, "error");
+        node.error(`TextBee SMS Error: ${err.message}`, msg);
+        node.status({ fill: "red", shape: "dot", text: `Error: ${err.message}` });
+        return null;
+        
+    } finally {
+        node.done();
+    }
+})();
+
+// Don't return synchronously - handled in async IIFE
+return;

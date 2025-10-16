@@ -42,6 +42,7 @@ This version implements **Node-RED's recommended lifecycle patterns** for produc
 3. Paste into the Setup tab
 
 **What it does:**
+
 - ✅ Validates `axios` is available
 - ✅ Checks `TEXTBEE_CONFIG` exists
 - ✅ Initializes SMS counter
@@ -55,6 +56,7 @@ This version implements **Node-RED's recommended lifecycle patterns** for produc
 3. Paste into the Close tab
 
 **What it does:**
+
 - ✅ Logs session statistics (total SMS sent)
 - ✅ Cleans up old deduplication keys (prevents memory leaks)
 - ✅ Resets counters
@@ -119,11 +121,13 @@ Click **Deploy** (top-right) and watch the debug sidebar!
 ### Automatic Cleanup
 
 **Periodic** (every hour while running):
+
 - Cleans deduplication keys older than 2× squelch window
 - Default: keys older than 120 seconds removed
 - Logs cleanup count if any removed
 
 **On Shutdown**:
+
 - Cleans deduplication keys older than 24 hours
 - Logs statistics (total keys, cleaned count)
 - Resets all counters
@@ -151,11 +155,13 @@ You can check context storage in Node-RED:
 ### Accessing Statistics
 
 **In Debug Sidebar** (automatic):
+
 - Startup logs show initialization
 - Each SMS logs incremented counter
 - Shutdown logs show session totals
 
 **Via Flow Context** (programmatic):
+
 ```javascript
 // In another Function node
 const stats = {
@@ -187,6 +193,7 @@ return msg;
 3. Or set environment: `NODE_RED_LOG_LEVEL=trace`
 
 **Trace Output Examples**:
+
 ```
 [trace] Normalized: email="joe@example.com", username="joe hawk"
 [trace] TextBee full request payload: { "recipients": ["+14025555555"], ... }
@@ -271,6 +278,7 @@ Add to your `TEXTBEE_CONFIG`:
 By default, statistics reset on redeploy. To persist across restarts:
 
 1. Configure **context storage** in `settings.js`:
+
 ```javascript
 contextStorage: {
     default: "memoryOnly",
@@ -279,6 +287,7 @@ contextStorage: {
 ```
 
 2. Store stats to file context:
+
 ```javascript
 context.set("sms_sent_count", count, "file");
 ```
@@ -290,6 +299,7 @@ context.set("sms_sent_count", count, "file");
 ### 1. Monitor Statistics
 
 Set up a **Status** node or dashboard to track:
+
 - SMS sent per hour/day
 - Deduplication key count (memory usage)
 - Error rates from Catch nodes
@@ -297,6 +307,7 @@ Set up a **Status** node or dashboard to track:
 ### 2. Alert on Issues
 
 Connect a **Catch** node to your notification system:
+
 ```
 [TextBee SMS] → [Catch] → [Pushover/Discord Alert]
 ```
@@ -304,6 +315,7 @@ Connect a **Catch** node to your notification system:
 ### 3. Log Rotation
 
 For high-volume deployments:
+
 - Enable file-based context storage
 - Set up log rotation in Node-RED
 - Monitor context storage size
@@ -311,6 +323,7 @@ For high-volume deployments:
 ### 4. Backup & Recovery
 
 Export your flow regularly:
+
 - Menu → Export → Current Tab
 - Store `jellyseerr_textbee_notify_*.js` files in version control
 - Document your `TEXTBEE_CONFIG` structure
@@ -324,6 +337,7 @@ Export your flow regularly:
 **Symptom**: Red status, error in logs
 
 **Check**:
+
 1. `TEXTBEE_CONFIG` is set in `settings.js` **OR** Node-RED env vars
 2. Restart Node-RED after editing `settings.js`
 3. Verify JSON syntax (use validator)
@@ -333,6 +347,7 @@ Export your flow regularly:
 **Symptom**: Yellow status, warning in logs
 
 **Fix**:
+
 ```javascript
 // In settings.js
 functionGlobalContext: {
@@ -349,6 +364,7 @@ Then restart Node-RED.
 **Cause**: Periodic cleanup not running or disabled
 
 **Fix**:
+
 1. Verify Setup/Close tabs are populated
 2. Check logs for "Cleaned up X keys"
 3. Manually trigger cleanup by redeploying
@@ -360,6 +376,7 @@ Then restart Node-RED.
 **Cause**: Using file-based context storage
 
 **Fix**: Use memory-only storage or manually reset:
+
 ```javascript
 context.set("sms_sent_count", 0);
 ```
@@ -391,6 +408,7 @@ context.set("sms_sent_count", 0);
 ---
 
 **Next Steps**:
+
 1. Copy code into Node-RED (all 3 tabs)
 2. Deploy and watch startup logs
 3. Test with webhook injection

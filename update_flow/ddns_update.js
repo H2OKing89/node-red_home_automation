@@ -1,8 +1,10 @@
 /**
  * Script Name: DDNS WAN vs DNS A Record Monitor
- * Version: 2.1.0
- * Date: 2025-10-16
+ * Version: 2.1.1
+ * Date: 2025-10-17
  * Changelog:
+ * - 2.1.1: Fixed logger error handling, improved status text compatibility,
+ *          removed IP exposure in status (Copilot PR feedback)
  * - 2.1.0: Added structured logging helper, improved msg preservation,
  *          added error metadata, aligned with practical guide patterns
  * - 2.0.0: Added node.status(), improved error handling with try/finally,
@@ -30,7 +32,7 @@ function createLogger(prefix) {
     return {
         log: (m) => LOGGING_ENABLED && node.log(`[${prefix}] ${m}`),
         warn: (m) => LOGGING_ENABLED && node.warn(`[${prefix}] ${m}`),
-        error: (m, err) => LOGGING_ENABLED && node.error(`[${prefix}] ${m}`, err || msg),
+        error: (m, err) => LOGGING_ENABLED && node.error(`[${prefix}] ${m}`, err || (typeof msg !== "undefined" && msg !== null ? msg : null)),
         debug: (obj) => LOGGING_ENABLED && node.debug(`[${prefix}] ${JSON.stringify(obj, null, 2)}`)
     };
 }
@@ -88,7 +90,7 @@ logger.log("Pushover credentials found, proceeding with check.");
         logger.log(`Comparing WAN IP and DNS IP: WAN=${wanIp}, DNS=${dnsIp}`);
         
         if (wanIp !== dnsIp) {
-            node.status({ fill: 'yellow', shape: 'ring', text: `Mismatch: WAN≠DNS` });
+            node.status({ fill: 'yellow', shape: 'ring', text: 'Mismatch: WAN!=DNS' });
             logger.warn(`WAN/DNS mismatch detected: WAN=${wanIp}, DNS=${dnsIp}`);
 
             // Build a bold, colorized HTML message for Pushover
@@ -128,7 +130,7 @@ logger.log("Pushover credentials found, proceeding with check.");
             logger.debug({ pushoverPayload: msg.payload });
             node.send(msg);
         } else {
-            node.status({ fill: 'green', shape: 'dot', text: `Match: ${wanIp}` });
+            node.status({ fill: 'green', shape: 'dot', text: 'IPs match' });
             logger.debug({ status: 'match', ip: wanIp });
             logger.log("No mismatch detected, no alert will be sent.");
         }

@@ -22,9 +22,8 @@ let cleanedCount = 0;
 let totalDedupeKeys = 0;
 
 allKeys.forEach(key => {
-    // Only clean dedupe keys (format: "EVENT:id")
-    // Skip internal tracking keys
-    if (key.includes(':') && key !== 'last_cleanup' && key !== 'sms_sent_count') {
+    // Only clean dedupe keys (prefixed with "dd:")
+    if (key.startsWith('dd:')) {
         totalDedupeKeys++;
         const timestamp = context.get(key);
         

@@ -1,6 +1,6 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.6.1
+ * Version: 1.7.0
  * Date: 2025-10-16
  * 
  * Description:
@@ -10,6 +10,11 @@
  * Supports multi-variant messages for natural, non-robotic notifications.
  * 
  * Changelog:
+ * - 1.7.0: Production hardening based on ChatGPT feedback - normalized event types to uppercase for
+ *          case-insensitive matching, added user-scoped deduplication (prevents different users from
+ *          squelching each other), prefixed dedupe keys with "dd:" for faster/safer cleanup, added
+ *          variant rotation to avoid back-to-back repeats, masked phone numbers in info logs for PII
+ *          safety (full numbers only in debug/trace), improved status text to show squelch window
  * - 1.6.1: Fixed node status display - "Queued" now shows green checkmark (✓) to indicate success,
  *          clarified that TextBee's queue system means SMS is accepted and will be sent shortly,
  *          all QUEUED/PENDING/ACCEPTED statuses now show green (success) instead of blue (info)
@@ -99,6 +104,17 @@ function log(message, level = "info") {
     } else {
         node.log(message);
     }
+}
+
+/**
+ * Mask phone number for PII-safe logging
+ * @param {string} phone - Phone number to mask
+ * @returns {string} Masked phone (e.g., +1402***6154)
+ */
+function maskPhone(phone) {
+    const p = String(phone || '');
+    // E.164 format: +1XXXXXXXXXX → +1XXX***XXXX (mask middle digits)
+    return p.replace(/^(\+?\d{0,2})(\d{3})(\d{3})(\d{2})(\d{2})$/, "$1$2***$4$5");
 }
 
 /**
@@ -246,6 +262,29 @@ function extractMediaTitle(payload) {
 }
 
 /**
+ * Pick a variant from pool, avoiding immediate repeats
+ * @param {Array} pool - Array of message variants
+ * @param {string} eventType - Event type for context key
+ * @returns {string|null} Selected variant or null
+ */
+function pickVariant(pool, eventType) {
+    if (!Array.isArray(pool) || pool.length === 0) return null;
+    
+    const lastKey = `last_variant:${eventType}`;
+    const lastIndex = context.get(lastKey);
+    
+    let randomIndex = Math.floor(Math.random() * pool.length);
+    
+    // Avoid back-to-back repeats if we have multiple variants
+    if (pool.length > 1 && randomIndex === lastIndex) {
+        randomIndex = (randomIndex + 1) % pool.length;
+    }
+    
+    context.set(lastKey, randomIndex);
+    return pool[randomIndex];
+}
+
+/**
  * Generate SMS message from template with multi-variant support
  * @param {object} config - TextBee configuration
  * @param {string} eventType - Jellyseerr event type
@@ -326,10 +365,9 @@ function generateSmsMessage(config, eventType, user, payload) {
     let selectedTemplate = null;
     
     if (Array.isArray(templatePool) && templatePool.length > 0) {
-        // Multi-variant: pick random message from pool
-        const randomIndex = Math.floor(Math.random() * templatePool.length);
-        selectedTemplate = templatePool[randomIndex];
-        log(`Selected variant ${randomIndex + 1}/${templatePool.length} for ${eventType}`, "debug");
+        // Multi-variant: pick random message from pool (avoiding immediate repeats)
+        selectedTemplate = pickVariant(templatePool, eventType);
+        log(`Selected variant for ${eventType} (pool size: ${templatePool.length})`, "debug");
     } else if (typeof templatePool === 'string') {
         // Legacy: single string template
         selectedTemplate = templatePool;
@@ -388,7 +426,7 @@ async function sendSms(config, phoneNumber, message) {
         sender: tb.default_sender || null
     };
     
-    log(`Sending SMS to ${phoneNumber} via TextBee`, "info");
+    log(`Sending SMS to ${maskPhone(phoneNumber)} via TextBee`, "info");
     log(`TextBee URL: ${url}`, "debug");
     log(`TextBee Payload: ${JSON.stringify(payload)}`, "debug");
     node.trace(`TextBee full request payload: ${JSON.stringify(payload, null, 2)}`);
@@ -513,7 +551,8 @@ async function sendSms(config, phoneNumber, message) {
         node.status({ fill: "blue", shape: "ring", text: "Processing SMS..." });
         
         const payload = msg.payload || {};
-        const eventType = payload.notification_type || payload.event;
+        // Normalize event type to uppercase for case-insensitive matching
+        const eventType = String(payload.notification_type || payload.event || "").toUpperCase();
         
         log(`Processing event: ${eventType}`);
         
@@ -531,16 +570,19 @@ async function sendSms(config, phoneNumber, message) {
             return null;
         }
         
-        // Check for duplicate notifications within squelch window
+        // Check for duplicate notifications within squelch window (user-scoped)
         const requestId = payload.request?.request_id || payload.issue?.id || extractMediaTitle(payload);
-        const dedupeKey = `${eventType}:${requestId}`;
+        const requesterKey = (payload.request?.requestedBy_email || payload.request?.requestedBy_username || 
+                              payload.issue?.reportedBy_email || payload.issue?.reportedBy_username || "unknown").toLowerCase();
+        const dedupeKey = `dd:${eventType}:${requestId}:${requesterKey}`;
         const now = Date.now();
         const lastSent = context.get(dedupeKey);
         const squelchMs = config.duplicate_squelch_ms || 60000; // 60 seconds default
         
         if (lastSent && (now - lastSent) < squelchMs) {
+            const squelchSecs = Math.round(squelchMs / 1000);
             log(`Squelched duplicate notification within ${squelchMs}ms for ${dedupeKey}`, "info");
-            node.status({ fill: "grey", shape: "dot", text: "Duplicate squelched" });
+            node.status({ fill: "grey", shape: "dot", text: `Duplicate (${squelchSecs}s window)` });
             return null;
         }
         
@@ -554,8 +596,8 @@ async function sendSms(config, phoneNumber, message) {
             let cleaned = 0;
             
             allKeys.forEach(key => {
-                // Only clean dedupe keys (format: "EVENT:id")
-                if (key.includes(':') && key !== 'last_cleanup' && key !== 'sms_sent_count') {
+                // Only clean dedupe keys (prefixed with "dd:")
+                if (key.startsWith('dd:')) {
                     const timestamp = context.get(key);
                     if (timestamp && (now - timestamp) > maxAge) {
                         context.set(key, undefined);
@@ -623,7 +665,7 @@ async function sendSms(config, phoneNumber, message) {
         
         // Normalize phone number to E.164 format
         const normalizedPhone = normalizePhone(user.phone);
-        log(`Normalized phone: ${user.phone} → ${normalizedPhone}`, "debug");
+        log(`Normalized phone: ${maskPhone(user.phone)} → ${maskPhone(normalizedPhone)}`, "debug");
         
         // Generate SMS message
         const message = generateSmsMessage(config, eventType, user, payload);
@@ -642,7 +684,7 @@ async function sendSms(config, phoneNumber, message) {
             throw new Error(`SMS send failed: ${result.status}`);
         }
         
-        log(`SMS ${result.status} for ${user.name} (${normalizedPhone}) - ID: ${result.sms_id}`, "info");
+        log(`SMS ${result.status} for ${user.name} (${maskPhone(normalizedPhone)}) - ID: ${result.sms_id}`, "info");
         
         // Store timestamp to prevent duplicates
         context.set(dedupeKey, now);

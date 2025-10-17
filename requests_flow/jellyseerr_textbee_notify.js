@@ -1,7 +1,7 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.7.0
- * Date: 2025-10-16
+ * Version: 1.7.1
+ * Date: 2025-01-16
  * 
  * Description:
  * Sends targeted SMS notifications via TextBee API for Jellyseerr webhook events.
@@ -10,6 +10,10 @@
  * Supports multi-variant messages for natural, non-robotic notifications.
  * 
  * Changelog:
+ * - 1.7.1: Fixes based on GitHub Copilot PR review - enhanced maskPhone() to properly handle 
+ *          international E.164 formats (varying country code/subscriber lengths), fixed redundant
+ *          phone normalization debug log (now only shows when value changes), sanitized requestId
+ *          and requesterKey to prevent colon conflicts in deduplication keys (replaces : with _)
  * - 1.7.0: Production hardening based on ChatGPT feedback - normalized event types to uppercase for
  *          case-insensitive matching, added user-scoped deduplication (prevents different users from
  *          squelching each other), prefixed dedupe keys with "dd:" for faster/safer cleanup, added
@@ -107,14 +111,30 @@ function log(message, level = "info") {
 }
 
 /**
- * Mask phone number for PII-safe logging
+ * Mask phone number for PII-safe logging (handles international E.164 formats)
  * @param {string} phone - Phone number to mask
- * @returns {string} Masked phone (e.g., +1402***6154)
+ * @returns {string} Masked phone (e.g., +1402***6154 or +44123***7890)
  */
 function maskPhone(phone) {
     const p = String(phone || '');
-    // E.164 format: +1XXXXXXXXXX → +1XXX***XXXX (mask middle digits)
-    return p.replace(/^(\+?\d{0,2})(\d{3})(\d{3})(\d{2})(\d{2})$/, "$1$2***$4$5");
+    
+    // E.164 format: +<country code><subscriber number>
+    // Mask all but country code and last 2-4 digits
+    const match = p.match(/^(\+?\d{1,3})(\d{5,12})$/);
+    if (match) {
+        const country = match[1];
+        const subscriber = match[2];
+        // Show first 2-3 digits, mask middle, show last 2-4 digits
+        const showStart = 3;
+        const showEnd = subscriber.length > 6 ? 4 : 2;
+        const start = subscriber.slice(0, showStart);
+        const end = subscriber.slice(-showEnd);
+        const masked = '*'.repeat(subscriber.length - showStart - showEnd);
+        return `${country}${start}${masked}${end}`;
+    }
+    
+    // Fallback: mask all but last 4 digits if not E.164
+    return p.replace(/.(?=.{4})/g, '*');
 }
 
 /**
@@ -571,9 +591,12 @@ async function sendSms(config, phoneNumber, message) {
         }
         
         // Check for duplicate notifications within squelch window (user-scoped)
-        const requestId = payload.request?.request_id || payload.issue?.id || extractMediaTitle(payload);
-        const requesterKey = (payload.request?.requestedBy_email || payload.request?.requestedBy_username || 
+        const requestIdRaw = payload.request?.request_id || payload.issue?.id || extractMediaTitle(payload);
+        const requesterKeyRaw = (payload.request?.requestedBy_email || payload.request?.requestedBy_username || 
                               payload.issue?.reportedBy_email || payload.issue?.reportedBy_username || "unknown").toLowerCase();
+        // Sanitize to prevent colon conflicts in dedupe key format
+        const requestId = String(requestIdRaw).replace(/:/g, "_");
+        const requesterKey = String(requesterKeyRaw).replace(/:/g, "_");
         const dedupeKey = `dd:${eventType}:${requestId}:${requesterKey}`;
         const now = Date.now();
         const lastSent = context.get(dedupeKey);
@@ -665,7 +688,11 @@ async function sendSms(config, phoneNumber, message) {
         
         // Normalize phone number to E.164 format
         const normalizedPhone = normalizePhone(user.phone);
-        log(`Normalized phone: ${maskPhone(user.phone)} → ${maskPhone(normalizedPhone)}`, "debug");
+        if (normalizedPhone !== user.phone) {
+            log(`Normalized phone: ${maskPhone(user.phone)} → ${maskPhone(normalizedPhone)}`, "debug");
+        } else {
+            log(`Phone already normalized: ${maskPhone(normalizedPhone)}`, "debug");
+        }
         
         // Generate SMS message
         const message = generateSmsMessage(config, eventType, user, payload);

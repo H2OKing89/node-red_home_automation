@@ -105,6 +105,10 @@ return [[m1, m2]]; // both go to output 1 in order
 
 ## 2) Async Work (The Right Way)
 
+> **Critical Rule:** If your Function uses **`node.send()`** (async pattern), you **MUST** call
+> **`node.done()`** when finished. This tells Node-RED the message is complete and enables proper
+> flow tracking. Synchronous functions that `return msg` do NOT need `node.done()`.
+
 ### 2.1 Callback style
 
 ```js
@@ -119,11 +123,15 @@ return;  // do not return a message synchronously
 
 *Node-RED clones each message passed to `node.send()`; you can skip cloning the **first** message by calling `node.send(msg, false)` (use sparingly).*
 
-> **Completion events:** `node.done()` will mark the message finished and trigger any **Complete** nodes
+> **Completion events:** `node.done()` marks the message as finished and triggers any **Complete** nodes
 > targeting this Function. Errors passed to `node.done(err)` or raised with `node.error(err, msg)` will
 > trigger **Catch** nodes.
+>
+> **Why it matters:** Without `node.done()`, the Node-RED runtime cannot track when async work completes.
+> This breaks flow completion tracking, prevents **Complete** nodes from firing, and can cause issues
+> with flow lifecycle management (especially during redeployment).
 
-### 2.2 Async/Await pattern
+### 2.2 Async/Await pattern (RECOMMENDED)
 
 ```js
 (async () => {
@@ -134,9 +142,34 @@ return;  // do not return a message synchronously
   } catch (e) {
     node.error(e, msg);
   } finally {
-    node.done();
+    node.done();  // ✅ ALWAYS in finally block - guarantees execution
   }
 })();
+return;
+```
+
+**Comparison: Sync vs Async**
+
+```js
+// ✅ SYNC - return msg, NO node.done() needed
+msg.payload = msg.payload.toUpperCase();
+return msg;
+
+// ✅ ASYNC - use node.send() + node.done()
+(async () => {
+  try {
+    msg.payload = await fetchData();
+    node.send(msg);
+  } finally {
+    node.done();  // REQUIRED!
+  }
+})();
+return;
+
+// ❌ WRONG - async work but forgot node.done()
+setTimeout(() => {
+  node.send(msg);  // sent but Node-RED thinks it's still processing!
+}, 1000);
 return;
 ```
 
@@ -153,6 +186,10 @@ node.on('close', () => {
   if (t) clearTimeout(t);
 });
 ```
+
+> **Note:** `setTimeout` and `setInterval` timers are **automatically cleared** when the flow is
+> redeployed or the node is stopped. However, you should still clean them up explicitly in
+> `node.on('close')` for proper async work tracking and to avoid race conditions during shutdown.
 
 ([Node-RED][1])
 
@@ -199,6 +236,13 @@ return;
 ```js
 const val = flow.get("count", "file");
 flow.set("count", 123, "file");
+```
+
+**Listing all keys:**
+
+```js
+const allKeys = flow.keys();  // returns array of all keys in flow context
+node.log(`Flow has ${allKeys.length} keys: ${allKeys.join(', ')}`);
 ```
 
 > **Guidance:** Keep context **small and structured**. Use a stable schema and prune regularly (e.g., keep
@@ -457,6 +501,44 @@ try {
   return null;
 }
 ```
+
+### 9.7 Professional Logger Helper
+
+```js
+function createLogger(prefix) {
+  return {
+    log: (msg) => node.log(`[${prefix}] ${msg}`),
+    warn: (msg) => node.warn(`[${prefix}] ${msg}`),
+    error: (msg, err) => node.error(`[${prefix}] ${msg}`, err),
+    debug: (obj) => node.debug(`[${prefix}] ${JSON.stringify(obj, null, 2)}`)
+  };
+}
+
+const logger = createLogger('MyFunction');
+logger.log('Processing started');
+logger.debug({ payload: msg.payload, topic: msg.topic });
+logger.error('Operation failed', new Error('boom'));
+```
+
+> **Tip:** Use consistent prefixes to filter logs across multiple Function nodes in production.
+
+### 9.8 Deep Cloning Messages (Multiple Independent Outputs)
+
+```js
+// When you need to send multiple different versions of a message
+const original = msg;
+const clone1 = RED.util.cloneMessage(msg);
+const clone2 = RED.util.cloneMessage(msg);
+
+clone1.payload.route = 'A';
+clone2.payload.route = 'B';
+original.payload.route = 'C';
+
+return [[clone1, clone2, original]];  // All get independent copies
+```
+
+> **Use case:** Fan-out processing where each path needs to mutate the message differently without
+> affecting others. Without cloning, all would share the same payload object reference.
 
 ---
 

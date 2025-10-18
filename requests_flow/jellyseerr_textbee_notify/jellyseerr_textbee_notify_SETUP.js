@@ -1,5 +1,5 @@
 /**
- * SETUP TAB CODE (On Start)
+ * START TAB CODE
  * 
  * Copy this entire file content into the "On Start" tab in Node-RED Function node editor.
  * 

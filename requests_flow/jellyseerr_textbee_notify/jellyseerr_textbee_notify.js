@@ -468,7 +468,7 @@ async function sendSms(config, phoneNumber, message) {
     log(`TextBee API HTTP Status: ${response.status}`, "info");
     log(`TextBee full response: ${JSON.stringify(response.data)}`, "info");
     log(`TextBee response type: ${typeof response.data}`, "debug");
-    log(`TextBee response keys: ${Object.keys(response.data || {}).join(', ')}`, "info");
+    log(`TextBee top-level keys: ${Object.keys(response.data || {}).join(', ')}`, "info");
     node.trace(`TextBee raw response: ${JSON.stringify(response.data, null, 2)}`);
     
     // Try multiple response structure patterns
@@ -477,6 +477,7 @@ async function sendSms(config, phoneNumber, message) {
         // Pattern 1: { data: { _id, status, ... } }
         responseData = response.data.data;
         log("Using response.data.data structure", "debug");
+        log(`SMS response keys: ${Object.keys(responseData || {}).join(', ')}`, "info");
     } else if (response.data?._id || response.data?.id || response.data?.status) {
         // Pattern 2: { _id, status, ... } (direct structure)
         responseData = response.data;
@@ -722,19 +723,11 @@ async function sendSms(config, phoneNumber, message) {
         log(`Total SMS sent this session: ${smsCount}`, "debug");
         
         // Update node status with SMS status
-        let statusText = `Sent to ${user.name}`;
+        // Note: TextBee always returns QUEUED (batch queue system), so we show "Sent" for clarity
+        let statusText = `✓ Sent: ${user.name}`;
         let statusColor = "green";
         
-        if (result.status === "PENDING" || result.status === "QUEUED" || result.status === "ACCEPTED") {
-            statusText = `✓ Queued: ${user.name}`;
-            statusColor = "green";  // Green because queued = success with TextBee
-        } else if (result.status === "SENT") {
-            statusText = `✓ Sent: ${user.name}`;
-            statusColor = "green";
-        } else if (result.status === "DELIVERED") {
-            statusText = `✓ Delivered: ${user.name}`;
-            statusColor = "green";
-        } else if (result.status === "UNKNOWN") {
+        if (result.status === "UNKNOWN") {
             statusText = `Sent: ${user.name} (status unknown)`;
             statusColor = "yellow";
         }

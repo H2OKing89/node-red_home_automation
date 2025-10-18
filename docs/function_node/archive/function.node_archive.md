@@ -4,7 +4,7 @@
 
 # 🧠 Node-RED Function Nodes Guide
 
-### **💻 Advanced JavaScript Programming in Home Automation Flows**
+## **💻 Advanced JavaScript Programming in Home Automation Flows**
 
 <img src="https://img.shields.io/badge/Node--RED-8F0000?style=for-the-badge&logo=nodered&logoColor=white" alt="Node-RED">
 <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript">

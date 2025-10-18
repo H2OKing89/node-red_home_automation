@@ -1,10 +1,10 @@
-<!-- markdownlint-disable MD033 MD041 MD036 MD022 MD032 MD013 MD031 -->
+<!-- markdownlint-disable MD033 MD041 MD036 MD022 MD032 MD013 MD031 MD037 MD038 -->
 
 <div align="center">
 
 # 📅 date-fns & date-fns-tz Integration Guide
 
-### **⏰ Professional Date & Time Handling for Home Automation**
+## **⏰ Professional Date & Time Handling for Home Automation**
 
 <img src="https://img.shields.io/badge/date--fns-3.6.0+-blue?style=for-the-badge&logo=javascript&logoColor=white" alt="date-fns">
 <img src="https://img.shields.io/badge/date--fns--tz-2.0.0+-green?style=for-the-badge&logo=timezone&logoColor=white" alt="date-fns-tz">
@@ -599,6 +599,7 @@ function testFallBack() {
 }
 
 // --- DST-Safe Scheduling ---
+```javascript
 function isDSTTransitionPeriod(date = new Date()) {
     const year = date.getFullYear();
     

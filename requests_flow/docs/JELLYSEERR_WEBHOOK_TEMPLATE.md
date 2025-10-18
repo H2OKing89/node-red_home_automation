@@ -18,9 +18,11 @@
 
 ---
 
-## 🎯 Overview
+## Overview
 
-This guide provides the **correct webhook template** for Jellyseerr to ensure proper integration with your Node-RED automation flows. Using the correct template prevents issues with dynamic key names, missing fields, and inconsistent data structures.
+This guide provides the **correct webhook template** for Jellyseerr to ensure proper
+integration with your Node-RED automation flows. Using the correct template prevents
+issues with dynamic key names, missing fields, and inconsistent data structures.
 
 ### Why This Template Matters
 
@@ -31,7 +33,7 @@ This guide provides the **correct webhook template** for Jellyseerr to ensure pr
 
 ---
 
-## ✅ Correct Webhook Template
+## Correct Webhook Template
 
 Copy and paste this **exact template** into your Jellyseerr webhook configuration:
 
@@ -96,7 +98,7 @@ Copy and paste this **exact template** into your Jellyseerr webhook configuratio
 
 ---
 
-## ⚠️ Common Mistakes to Avoid
+## Common Mistakes to Avoid
 
 ### ❌ Mistake 1: Dynamic Key Names
 
@@ -110,7 +112,8 @@ Copy and paste this **exact template** into your Jellyseerr webhook configuratio
 }
 ```
 
-**Problem:** This creates keys like `"movie"`, `"tv"`, or empty strings instead of consistent `"media"`, `"request"`, `"issue"` keys.
+**Problem:** This creates keys like `"movie"`, `"tv"`, or empty strings instead of
+consistent `"media"`, `"request"`, `"issue"` keys.
 
 **RIGHT:**
 
@@ -168,7 +171,7 @@ Copy and paste this **exact template** into your Jellyseerr webhook configuratio
 
 ---
 
-## 📊 Example Payloads by Event Type
+## Example Payloads by Event Type
 
 ### MEDIA_APPROVED
 
@@ -341,7 +344,7 @@ Copy and paste this **exact template** into your Jellyseerr webhook configuratio
 
 ---
 
-## 🔧 Jellyseerr Configuration Steps
+## Jellyseerr Configuration Steps
 
 ### Step 1: Access Webhook Settings
 
@@ -437,7 +440,7 @@ Select which events should trigger the webhook:
 
 ---
 
-## 🧪 Testing Your Webhook
+## Testing Your Webhook
 
 ### Method 1: Test Button in Jellyseerr
 
@@ -491,7 +494,7 @@ curl -X POST https://your-node-red-domain.com:1880/endpoint/requests \
 
 ---
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Issue: "Missing required field" warning
 

@@ -1,33 +1,32 @@
-<!-- markdownlint-disable MD033 MD041 MD036 MD022 MD032 MD013 MD031 -->
-
-<div align="center">
+<!-- markdownlint-disable MD033 MD036 -->
 
 # ☀️ SunCalc Solar Intelligence Guide
 
-### **🌅 Advanced Daylight Detection for Smart Home Automation**
+## 🌅 Advanced Daylight Detection for Smart Home Automation
 
-<img src="https://img.shields.io/badge/SunCalc-Solar_Intelligence-yellow?style=for-the-badge&logo=weather&logoColor=white" alt="SunCalc">
-<img src="https://img.shields.io/badge/Lighting-Automated-blue?style=for-the-badge&logo=lightbulb&logoColor=white" alt="Lighting">
-<img src="https://img.shields.io/badge/Node--RED-Compatible-red?style=for-the-badge&logo=nodered&logoColor=white" alt="Node-RED">
-<img src="https://img.shields.io/badge/Location-GPS_Based-green?style=for-the-badge&logo=location&logoColor=white" alt="GPS">
+<p align="center">
+  <img src="https://img.shields.io/badge/SunCalc-Solar_Intelligence-yellow?style=for-the-badge&logo=weather&logoColor=white"
+       alt="SunCalc">
+  <img src="https://img.shields.io/badge/Lighting-Automated-blue?style=for-the-badge&logo=lightbulb&logoColor=white" alt="Lighting">
+  <img src="https://img.shields.io/badge/Node--RED-Compatible-red?style=for-the-badge&logo=nodered&logoColor=white" alt="Node-RED">
+  <img src="https://img.shields.io/badge/Location-GPS_Based-green?style=for-the-badge&logo=location&logoColor=white" alt="GPS">
+</p>
 
-<br>
+<p align="center">
+  <img src="https://img.shields.io/badge/Dawn_Detection-Automatic-brightgreen?style=flat-square" alt="Dawn">
+  <img src="https://img.shields.io/badge/Dusk_Detection-Automatic-orange?style=flat-square" alt="Dusk">
+  <img src="https://img.shields.io/badge/Solar_Phases-Complete-purple?style=flat-square" alt="Solar">
+  <img src="https://img.shields.io/badge/Seasonal_Aware-Adaptive-blue?style=flat-square" alt="Seasonal">
+</p>
 
-<img src="https://img.shields.io/badge/Dawn_Detection-Automatic-brightgreen?style=flat-square" alt="Dawn">
-<img src="https://img.shields.io/badge/Dusk_Detection-Automatic-orange?style=flat-square" alt="Dusk">
-<img src="https://img.shields.io/badge/Solar_Phases-Complete-purple?style=flat-square" alt="Solar">
-<img src="https://img.shields.io/badge/Seasonal_Aware-Adaptive-blue?style=flat-square" alt="Seasonal">
-
-<br>
-
-**☀️ Solar positioning calculations • 🌙 Intelligent darkness detection • 💡 Automated lighting control • 📍 Location-aware scheduling**
-
-</div>
+<p align="center"><strong>☀️ Solar positioning calculations • 🌙 Intelligent darkness detection •<br>
+💡 Automated lighting control • 📍 Location-aware scheduling</strong></p>
 
 ---
 
-## 🌟 **Solar Intelligence Overview**
+## 🌟 Solar Intelligence Overview
 
+<!-- markdownlint-disable-next-line MD033 -->
 <div align="center">
 
 ```mermaid
@@ -96,18 +95,21 @@ graph TD
 <img src="https://img.shields.io/badge/Type-Astronomical_Library-orange?style=flat-square" alt="Astronomical">
 
 ✅ **Precision Solar Data**
+
 - Dawn, sunrise, sunset, dusk times
 - Solar position calculations
 - Seasonal adaptation
 - Geographic accuracy
 
 ✅ **Light Condition Detection**
+
 - Day vs. night determination
 - Twilight period identification
 - Custom threshold support
 - Real-time evaluation
 
 ✅ **Home Automation Integration**
+
 - Motion-activated lighting
 - Security system scheduling
 - Energy optimization
@@ -121,18 +123,21 @@ graph TD
 <img src="https://img.shields.io/badge/Type-Smart_Scheduling-blue?style=flat-square" alt="Smart">
 
 ✅ **Automated Lighting**
+
 - Dark-hours-only activation
 - Gradual brightness adjustment
 - Energy-efficient operation
 - Motion detection integration
 
 ✅ **Security Enhancement**
+
 - Night mode activation
 - Perimeter lighting control
 - Surveillance optimization
 - Alert system scheduling
 
 ✅ **Climate Optimization**
+
 - Natural light utilization
 - Heating/cooling efficiency
 - Window covering automation
@@ -215,6 +220,7 @@ graph TD
 </div>
 
 **⚠️ Important Notes:**
+
 - **NO** `require()` statements needed
 - Reference module directly as `suncalc`
 - Accurate coordinates essential for proper calculation
@@ -233,8 +239,8 @@ graph TD
 // ========================================
 
 // --- Location Configuration ---
-const LAT = 40.854118;  // 📍 Replace with your latitude
-const LON = -96.717293; // 📍 Replace with your longitude
+const LAT = 40.7128;    // 📍 Example: New York City latitude
+const LON = -74.0060;   // 📍 Example: New York City longitude
 
 // --- Current Date/Time ---
 const nowDate = new Date();
@@ -321,8 +327,8 @@ if (isDark) {
 // 🚗 INTELLIGENT GARAGE LIGHTING SYSTEM
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 const nowDate = new Date();
 
 // --- Solar Intelligence ---
@@ -448,8 +454,8 @@ return null; // No action needed
 // 🏠 MULTI-ZONE INTELLIGENT LIGHTING
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 const nowDate = new Date();
 
 // --- Enhanced Solar Calculations ---
@@ -628,8 +634,8 @@ return null;
 // 🌅 COMPLETE SOLAR PHASE SYSTEM
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 
 // --- Advanced Solar Phase Detection ---
 function getCompleteSolarAnalysis(date = new Date()) {
@@ -917,8 +923,8 @@ return null;
 // 🧪 SUNCALC TESTING FRAMEWORK
 // ========================================
 
-const LAT = 40.854118;
-const LON = -96.717293;
+const LAT = 40.7128;    // Example: New York City
+const LON = -74.0060;   // Example: New York City
 
 // --- Test Suite Runner ---
 function runSunCalcTests() {
@@ -981,7 +987,7 @@ function testBasicCalculations() {
 // --- Coordinate Validation Test ---
 function testCoordinateValidation() {
     const validTests = [
-        { lat: 40.854118, lon: -96.717293, name: 'Nebraska' },
+        { lat: 40.7128, lon: -74.0060, name: 'New York City' },
         { lat: 0, lon: 0, name: 'Equator/Prime Meridian' },
         { lat: -33.8688, lon: 151.2093, name: 'Sydney' }
     ];

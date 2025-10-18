@@ -5,7 +5,10 @@
 
 ## Overview
 
-Applied comprehensive Node-RED Function Node best practices from `docs/function_node/node_red_function_node_practical_guide.md` to the main webhook handler, bringing it to full compliance with professional patterns used in the lifecycle scripts.
+Applied comprehensive Node-RED Function Node best practices from
+`docs/function_node/node_red_function_node_practical_guide.md` to the main webhook
+handler, bringing it to full compliance with professional patterns used in the
+lifecycle scripts.
 
 ---
 
@@ -384,4 +387,6 @@ grep "\[Webhook Handler\] Processing webhook #" ~/.node-red/node-red.log | \
 
 ---
 
-*The webhook handler now implements the same professional logging patterns as the lifecycle scripts, providing consistent, filterable logs across the entire Jellyseerr notification pipeline.* ✨
+*The webhook handler now implements the same professional logging patterns as the
+lifecycle scripts, providing consistent, filterable logs across the entire Jellyseerr
+notification pipeline.* ✨

@@ -121,7 +121,8 @@ doSomethingAsync(msg, (err, result) => {
 return;  // do not return a message synchronously
 ```
 
-*Node-RED clones each message passed to `node.send()`; you can skip cloning the **first** message by calling `node.send(msg, false)` (use sparingly).*
+*Node-RED clones each message passed to `node.send()`; you can skip cloning the **first**
+message by calling `node.send(msg, false)` (use sparingly).*
 
 > **Completion events:** `node.done()` marks the message as finished and triggers any **Complete** nodes
 > targeting this Function. Errors passed to `node.done(err)` or raised with `node.error(err, msg)` will
@@ -148,7 +149,7 @@ return;  // do not return a message synchronously
 return;
 ```
 
-**Comparison: Sync vs Async**
+### Comparison: Sync vs Async
 
 ```js
 // ✅ SYNC - return msg, NO node.done() needed
@@ -373,16 +374,21 @@ return msg;
 
 #### 6.2.1 Version pinning & reproducibility
 
-* Prefer **exact versions** in the editor, e.g., `dayjs@1.11.13`. (FlowFuse notes the auto-install behavior mirrors core.) ([FlowFuse][7])
-* For air-gapped/CI builds, pre-install into the userDir and keep `functionExternalModules` enabled for resolution. ([Node-RED][6])
+* Prefer **exact versions** in the editor, e.g., `dayjs@1.11.13`. (FlowFuse notes the
+auto-install behavior mirrors core.) ([FlowFuse][7])
+* For air-gapped/CI builds, pre-install into the userDir and keep
+`functionExternalModules` enabled for resolution. ([Node-RED][6])
 
 #### 6.2.2 ESM vs CommonJS
 
-Function nodes run in a CommonJS sandbox. Many libs ship CJS builds; for ESM-only libs you can often use **dynamic `import()`**, but success depends on the runtime Node version and the package’s build. Test locally before committing. ([Node-RED][6])
+Function nodes run in a CommonJS sandbox. Many libs ship CJS builds; for ESM-only libs
+you can often use **dynamic `import()`**, but success depends on the runtime Node version
+and the package's build. Test locally before committing. ([Node-RED][6])
 
 #### 6.2.3 Security & governance
 
-Only enable `functionExternalModules` if you trust flow authors; consider pre-baking allowed libs and using read-only images where appropriate. ([Node-RED][6])
+Only enable `functionExternalModules` if you trust flow authors; consider pre-baking
+allowed libs and using read-only images where appropriate. ([Node-RED][6])
 
 ### 6.3 Choosing a path
 
@@ -394,7 +400,8 @@ Only enable `functionExternalModules` if you trust flow authors; consider pre-ba
 
 ## 7) Timeouts (NR ≥ 3.1)
 
-Set a per-Function **timeout** (seconds) in the Setup tab. If exceeded, Node-RED raises an error—handy for catching infinite loops/hung I/O. Pair with a defensive wrapper:
+Set a per-Function **timeout** (seconds) in the Setup tab. If exceeded, Node-RED raises
+an error—handy for catching infinite loops/hung I/O. Pair with a defensive wrapper:
 
 ```js
 const withTimeout = (p, ms) => Promise.race([
@@ -408,7 +415,7 @@ const withTimeout = (p, ms) => Promise.race([
 
 ## 8) Performance & Reliability Checklist
 
-**Do**
+### Do
 
 * Cap arrays in context (e.g., keep last N items only).
 * Debounce/throttle noisy sensors before heavy work.
@@ -416,12 +423,13 @@ const withTimeout = (p, ms) => Promise.race([
 * Use consistent `node.status` colors/text for quick triage.
 * Add one **Complete**, **Catch**, and **Status** “observability” trio per tab wired to your logger. ([FlowFuse][8])
 
-**Don’t**
+### Don't
 
 * Blast 50MB Buffers across six outputs and expect it to be free—cloning costs CPU/RAM. ([Node-RED][3])
 * Replace `msg` in HTTP flows without copying `req`/`res`. ([Node-RED][1])
 
-> **Promotion rule:** if a Function surpasses ~150 LOC, pulls multiple modules, or does heavy I/O → **Subflow** or **external service**.
+> **Promotion rule:** if a Function surpasses ~150 LOC, pulls multiple modules, or does
+> heavy I/O → **Subflow** or **external service**.
 
 ---
 
@@ -602,7 +610,8 @@ return [[clone1, clone2, original]];  // All get independent copies
 
 ### 13.3 Docker persistence
 
-* Install to the Node-RED **userDir** (commonly `/data`) and **persist** it so `node_modules` and `settings.js` survive restarts. ([Node-RED][6])
+* Install to the Node-RED **userDir** (commonly `/data`) and **persist** it so
+`node_modules` and `settings.js` survive restarts. ([Node-RED][6])
 
 ### 13.4 Fallback: functionGlobalContext
 

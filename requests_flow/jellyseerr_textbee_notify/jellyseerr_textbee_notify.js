@@ -9,58 +9,16 @@
  * Only notifies users directly involved in the request/issue (requestor, reporter, commenter).
  * Supports multi-variant messages for natural, non-robotic notifications.
  * 
- * Changelog:
+ * Recent Changes:
  * - 1.7.4: Bug fix: ISSUE_COMMENT messages now correctly use commenter's username instead of issue
- *          reporter's username for {username} placeholder. Previously showed duplicate names when
- *          same person commented (e.g., "Quentin King, Quentin King just added..."). Now properly
- *          distinguishes between comment author and notification recipient.
+ *          reporter's username for {username} placeholder. Fixes duplicate name display when same
+ *          person comments (e.g., "Quentin King, Quentin King just added...").
  * - 1.7.3: Bug fix: Enhanced sanitization of deduplication keys to remove spaces in addition to colons.
- *          Previously caused "Invalid property expression" errors when usernames contained spaces
- *          (e.g., "Quentin King"). Now uses regex /[:\s]/g to strip both colons and whitespace.
- * - 1.7.2: Enhanced node status display with timezone-aware timestamps using date-fns-tz, shows
- *          "✓ Sent: Betty King 10/17/2025 22:47" format with America/Chicago timezone, includes
- *          fallback to local time if date-fns-tz unavailable, simplified status text to show
- *          "Sent" instead of "Queued" since TextBee always returns QUEUED status
- * - 1.7.1: Fixes based on GitHub Copilot PR review - enhanced maskPhone() to properly handle 
- *          international E.164 formats (varying country code/subscriber lengths), fixed redundant
- *          phone normalization debug log (now only shows when value changes), sanitized requestId
- *          and requesterKey to prevent colon conflicts in deduplication keys (replaces : with _)
- * - 1.7.0: Production hardening based on ChatGPT feedback - normalized event types to uppercase for
- *          case-insensitive matching, added user-scoped deduplication (prevents different users from
- *          squelching each other), prefixed dedupe keys with "dd:" for faster/safer cleanup, added
- *          variant rotation to avoid back-to-back repeats, masked phone numbers in info logs for PII
- *          safety (full numbers only in debug/trace), improved status text to show squelch window
- * - 1.6.1: Fixed node status display - "Queued" now shows green checkmark (✓) to indicate success,
- *          clarified that TextBee's queue system means SMS is accepted and will be sent shortly,
- *          all QUEUED/PENDING/ACCEPTED statuses now show green (success) instead of blue (info)
- * - 1.6.0: Added multi-variant message support with randomization (9-10 variants per event),
- *          prevents notification fatigue with conversational tone variations, added randomized
- *          signature selection, supports both array templates (new) and string templates (legacy),
- *          enhanced message personality and humor
- * - 1.5.0: Added Setup/Close tab lifecycle management, periodic context cleanup, statistics
- *          tracking, node.trace() for deep debugging, memory leak prevention via automatic
- *          deduplication key expiration
- * - 1.4.0: Fixed node.send(msg) to properly pass messages downstream, added case-insensitive
- *          user lookup, phone number normalization (E.164), duplicate squelch window,
- *          corrected timeout default to 30000ms (was 5000ms)
- * - 1.3.0: Added support for MEDIA_DECLINED events, notifies users when their media
- *          requests are declined by administrators
- * - 1.2.1: Improved default fallback messages for all event types, now MEDIA_APPROVED has
- *          distinct default message instead of falling back to request_added
- * - 1.2.0: Added native TextBee response format support (smsBatchId, success field),
- *          infers QUEUED/ACCEPTED status from success:true responses, handles TextBee's
- *          batch operation model, improved status display for queued messages
- * - 1.1.2: Enhanced debug logging to INFO level for response inspection, added detailed field
- *          enumeration when standard fields not found, logs all response keys and values
- * - 1.1.1: Enhanced response parsing to handle multiple TextBee API response structures,
- *          added comprehensive debug logging, multiple fallback patterns for field extraction,
- *          supports various field name variations (_id/id/messageId, status/state, etc.)
- * - 1.1.0: Added TextBee API response validation, checks SMS status (PENDING/SENT/DELIVERED/FAILED),
- *          improved error handling for API failures, enhanced status indicators with SMS state,
- *          added sms_id and sms_status to msg.textbee_result for downstream tracking
- * - 1.0.1: Fixed config loading to support both env.get() and global.get(), handles both
- *          JSON strings and objects
- * - 1.0.0: Initial implementation with user mapping, template support, and TextBee API integration
+ *          Fixes "Invalid property expression" errors when usernames contain spaces.
+ * - 1.7.2: Enhanced node status with timezone-aware timestamps using date-fns-tz (America/Chicago).
+ *          Shows "✓ Sent: Betty King 10/17/2025 22:47" format with fallback to local time.
+ * 
+ * Full Changelog: See CHANGELOG/CHANGELOG_v1.7.x.md for detailed version history
  * 
  * Setup Requirements:
  * - External Modules: 

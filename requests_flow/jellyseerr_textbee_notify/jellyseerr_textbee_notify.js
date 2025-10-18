@@ -1,7 +1,7 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.7.2
- * Date: 2025-10-17
+ * Version: 1.7.4
+ * Date: 2025-10-18
  * 
  * Description:
  * Sends targeted SMS notifications via TextBee API for Jellyseerr webhook events.
@@ -10,6 +10,13 @@
  * Supports multi-variant messages for natural, non-robotic notifications.
  * 
  * Changelog:
+ * - 1.7.4: Bug fix: ISSUE_COMMENT messages now correctly use commenter's username instead of issue
+ *          reporter's username for {username} placeholder. Previously showed duplicate names when
+ *          same person commented (e.g., "Quentin King, Quentin King just added..."). Now properly
+ *          distinguishes between comment author and notification recipient.
+ * - 1.7.3: Bug fix: Enhanced sanitization of deduplication keys to remove spaces in addition to colons.
+ *          Previously caused "Invalid property expression" errors when usernames contained spaces
+ *          (e.g., "Quentin King"). Now uses regex /[:\s]/g to strip both colons and whitespace.
  * - 1.7.2: Enhanced node status display with timezone-aware timestamps using date-fns-tz, shows
  *          "✓ Sent: Betty King 10/17/2025 22:47" format with America/Chicago timezone, includes
  *          fallback to local time if date-fns-tz unavailable, simplified status text to show
@@ -353,11 +360,24 @@ function generateSmsMessage(config, eventType, user, payload) {
     const title = extractMediaTitle(payload);
     const userName = user.name || user.jellyseerr_username || "there";
     
+    // Determine username based on event type
+    let actorUsername = "Unknown";
+    if (eventType === "ISSUE_COMMENT" && payload.comment?.commentedBy_username) {
+        // For comments, use the commenter's username
+        actorUsername = payload.comment.commentedBy_username;
+    } else if (payload.request?.requestedBy_username) {
+        // For request events, use the requester's username
+        actorUsername = payload.request.requestedBy_username;
+    } else if (payload.issue?.reportedBy_username) {
+        // For issue events, use the reporter's username
+        actorUsername = payload.issue.reportedBy_username;
+    }
+    
     // Template placeholders: {name}, {title}, {username}, {issue_type}
     const replacements = {
         "{name}": userName,
         "{title}": title,
-        "{username}": payload.request?.requestedBy_username || payload.issue?.reportedBy_username || "Unknown",
+        "{username}": actorUsername,
         "{issue_type}": payload.issue?.issue_type || "Unknown"
     };
     
@@ -631,9 +651,9 @@ async function sendSms(config, phoneNumber, message) {
         const requestIdRaw = payload.request?.request_id || payload.issue?.id || extractMediaTitle(payload);
         const requesterKeyRaw = (payload.request?.requestedBy_email || payload.request?.requestedBy_username || 
                               payload.issue?.reportedBy_email || payload.issue?.reportedBy_username || "unknown").toLowerCase();
-        // Sanitize to prevent colon conflicts in dedupe key format
-        const requestId = String(requestIdRaw).replace(/:/g, "_");
-        const requesterKey = String(requesterKeyRaw).replace(/:/g, "_");
+        // Sanitize to prevent invalid characters in context keys (colons, spaces, special chars)
+        const requestId = String(requestIdRaw).replace(/[:\s]/g, "_");
+        const requesterKey = String(requesterKeyRaw).replace(/[:\s]/g, "_");
         const dedupeKey = `dd:${eventType}:${requestId}:${requesterKey}`;
         const now = Date.now();
         const lastSent = context.get(dedupeKey);

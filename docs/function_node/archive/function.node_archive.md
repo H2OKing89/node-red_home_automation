@@ -638,7 +638,7 @@ switch(msg.topic) {
 ### ⚙️ **Function Node Lifecycle**
 
 <details>
-<summary><b>🔧 Setup and Cleanup Patterns (Click to expand)</b></summary>
+<summary><b>🔧 Setup, Start and Cleanup Patterns (Click to expand)</b></summary>
 
 ```javascript
 // 📋 On Start Tab (Setup) - Runs when node starts

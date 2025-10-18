@@ -1,7 +1,7 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.7.1
- * Date: 2025-01-16
+ * Version: 1.7.2
+ * Date: 2025-10-17
  * 
  * Description:
  * Sends targeted SMS notifications via TextBee API for Jellyseerr webhook events.
@@ -10,6 +10,10 @@
  * Supports multi-variant messages for natural, non-robotic notifications.
  * 
  * Changelog:
+ * - 1.7.2: Enhanced node status display with timezone-aware timestamps using date-fns-tz, shows
+ *          "✓ Sent: Betty King 10/17/2025 22:47" format with America/Chicago timezone, includes
+ *          fallback to local time if date-fns-tz unavailable, simplified status text to show
+ *          "Sent" instead of "Queued" since TextBee always returns QUEUED status
  * - 1.7.1: Fixes based on GitHub Copilot PR review - enhanced maskPhone() to properly handle 
  *          international E.164 formats (varying country code/subscriber lengths), fixed redundant
  *          phone normalization debug log (now only shows when value changes), sanitized requestId
@@ -52,7 +56,8 @@
  * - 1.0.0: Initial implementation with user mapping, template support, and TextBee API integration
  * 
  * Setup Requirements:
- * - External Modules: None required
+ * - External Modules: 
+ *   - date-fns-tz (v2.0.0+) as dateFnsTz - for timezone-aware timestamps (optional but recommended)
  * - Global Context (settings.js):
  *   - axios: require('axios')
  *   - TEXTBEE_CONFIG: Config object or JSON.stringify(config)
@@ -65,6 +70,7 @@
  * - Setup Tab: Initialize state, validate config, pre-warm caches
  * - Main Tab: This file (message processing)
  * - Close Tab: Cleanup deduplication keys, log statistics
+ * - Modules Tab: Add "date-fns-tz" (v2.0.0+) with variable name "dateFnsTz"
  */
 
 // ============================================================================
@@ -72,6 +78,15 @@
 // ============================================================================
 
 const LOGGING_ENABLED = true;
+
+// Time zone configuration for timestamps
+const TIME_ZONE = 'America/Chicago';
+
+// Check if date-fns-tz is available
+const formatInTimeZone = dateFnsTz?.formatInTimeZone;
+if (!formatInTimeZone) {
+    node.warn('date-fns-tz not available - timestamps will use local server time');
+}
 
 // Events that should trigger SMS notifications
 const SMS_EVENTS = [
@@ -107,6 +122,27 @@ function log(message, level = "info") {
         node.debug(message);
     } else {
         node.log(message);
+    }
+}
+
+/**
+ * Format current time for node status display
+ * @returns {string} Formatted time string (MM/DD/YYYY HH:mm)
+ */
+function getStatusTimestamp() {
+    const now = new Date();
+    
+    if (formatInTimeZone) {
+        // Use timezone-aware formatting (preferred)
+        return formatInTimeZone(now, TIME_ZONE, 'M/d/yyyy HH:mm');
+    } else {
+        // Fallback to local server time
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        const year = now.getFullYear();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        return `${month}/${day}/${year} ${hours}:${minutes}`;
     }
 }
 
@@ -724,11 +760,12 @@ async function sendSms(config, phoneNumber, message) {
         
         // Update node status with SMS status
         // Note: TextBee always returns QUEUED (batch queue system), so we show "Sent" for clarity
-        let statusText = `✓ Sent: ${user.name}`;
+        const timestamp = getStatusTimestamp();
+        let statusText = `✓ Sent: ${user.name} ${timestamp}`;
         let statusColor = "green";
         
         if (result.status === "UNKNOWN") {
-            statusText = `Sent: ${user.name} (status unknown)`;
+            statusText = `Sent: ${user.name} ${timestamp} (unknown)`;
             statusColor = "yellow";
         }
         

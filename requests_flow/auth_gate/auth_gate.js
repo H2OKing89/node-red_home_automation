@@ -1,7 +1,7 @@
 /**
  * Script Name: Authentication Gateway
- * Version: 3.0.0
- * Date: 2025-10-17
+ * Version: 3.0.1
+ * Date: 2025-10-18
  * 
  * Description:
  * Authenticates POST requests using Authorization header with Bearer token validation.
@@ -21,6 +21,9 @@
  * - Close Tab (optional): Log security statistics on node stop
  * 
  * Changelog:
+ * - 3.0.1: Bug fix: getClientIP() now correctly prioritizes proxy headers (x-real-ip,
+ *          x-forwarded-for) over connection IP when behind Nginx reverse proxy. Previously
+ *          logged 127.0.0.1 (proxy) instead of actual client IP for security monitoring
  * - 3.0.0: Applied Node-RED Function Node best practices for security monitoring - added
  *          Professional Logger Helper with [Auth Gate] prefix for filterable security logs,
  *          enhanced error context with full security metadata (IP, method, URL, auth header
@@ -73,14 +76,17 @@ const logger = createLogger('Auth Gate');
 // ============================================================================
 
 /**
- * Get client IP address from request
+ * Get client IP address from request (proxy-aware)
+ * Checks proxy headers first since Node-RED is behind Nginx
  * @param {object} req - Express request object
  * @returns {string} Client IP address or 'unknown'
  */
 function getClientIP(req) {
-    return req.connection?.remoteAddress || 
-           req.headers['x-forwarded-for'] || 
-           req.headers['x-real-ip'] || 
+    // Check proxy headers first (Nginx forwards real client IP here)
+    return req.headers['x-real-ip'] || 
+           req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+           req.connection?.remoteAddress || 
+           req.socket?.remoteAddress ||
            'unknown';
 }
 

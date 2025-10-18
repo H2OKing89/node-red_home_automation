@@ -1,8 +1,11 @@
 # Home Assistant TTS Payload Templates for Sonos & Google Speakers
 
-This document provides templates and examples for constructing the `payload.message` and related fields for Home Assistant TTS (Text-to-Speech) notifications, specifically for Sonos and Google speakers. Use these as a reference for Node-RED function nodes or direct Home Assistant Action calls.
+This document provides templates and examples for constructing the `payload.message` and related fields
+for Home Assistant TTS (Text-to-Speech) notifications, specifically for Sonos and Google speakers.
+Use these as a reference for Node-RED function nodes or direct Home Assistant Action calls.
 
-**Important:** As of 2025, Home Assistant changed the TTS API for non-Sonos speakers (Google, Apple, etc.) to use the `tts.speak` action instead of device-specific actions like `tts.google_say`.
+**Important:** As of 2025, Home Assistant changed the TTS API for non-Sonos speakers (Google, Apple, etc.)
+to use the `tts.speak` action instead of device-specific actions like `tts.google_say`.
 
 ---
 
@@ -250,8 +253,10 @@ This document provides templates and examples for constructing the `payload.mess
 
 ## Tips
 
-- **Sonos:** Always URL-encode the message and wrap it in quotes for best clarity. Sonos uses `media_player.play_media` with special TTS media source URLs.
-- **Google/Apple/Other speakers:** Use the new `tts.speak` action with the appropriate TTS service entity (e.g., `tts.google_translate_en_com`, `tts.apple_say`).
+- **Sonos:** Always URL-encode the message and wrap it in quotes for best clarity.
+  Sonos uses `media_player.play_media` with special TTS media source URLs.
+- **Google/Apple/Other speakers:** Use the new `tts.speak` action with the appropriate TTS service entity
+  (e.g., `tts.google_translate_en_com`, `tts.apple_say`).
 - **Volume control:** Set volume before sending the TTS message using `media_player.volume_set` (wait ~400ms between commands).
 - **Multiple speakers:** Use arrays for `media_player_entity_id` when sending to multiple devices.
 - **Caching:** Use `cache: true` for better performance with repeated messages.

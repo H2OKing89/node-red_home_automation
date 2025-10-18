@@ -1,6 +1,8 @@
 # Pushover Message API
 
-The Pushover API provides a simple, versioned REST interface for sending push notifications to devices. No complex authentication mechanisms like OAuth are required - just standard HTTP libraries available in virtually any programming language.
+The Pushover API provides a simple, versioned REST interface for sending push notifications to devices.
+No complex authentication mechanisms like OAuth are required -
+just standard HTTP libraries available in virtually any programming language.
 
 ## Table of Contents
 
@@ -43,7 +45,8 @@ curl -X POST https://api.pushover.net/1/messages.json \
 
 ## Application Registration
 
-Before sending notifications, you must register your application (free) to obtain an API token. During registration, you can:
+Before sending notifications, you must register your application (free) to obtain an API token.
+During registration, you can:
 
 - Set your application name (used as default message title)
 - Upload an icon (displayed with notifications)
@@ -184,7 +187,8 @@ token=azGDORePK8gMaC0QOYAMyEEuzJnyUi&user=uQiRzpo4DXghDmr9QzzfQu27cmVRsG&device=
 
 ### URL Handling
 
-URLs in message text are automatically converted to clickable links. For additional URL functionality, see the Supplementary URLs section below.
+URLs in message text are automatically converted to clickable links.
+For additional URL functionality, see the Supplementary URLs section below.
 
 ## API Parameters
 

@@ -1,23 +1,42 @@
 # Home Assistant Notify Mobile App Payload Templates
 
-_A comprehensive guide to constructing, sending, and handling Home Assistant mobile app notifications—including advanced, actionable, and platform-specific options—for Node-RED and YAML automations._
+_A comprehensive guide to constructing, sending, and handling Home Assistant mobile app_
+_notifications—including advanced, actionable, and platform-specific options—for Node-RED and YAML automations._
 
 ## Index
 
-- [Platform-Specific Features: Android HTML & TTS](#platform-specific-features-android-html--tts)
-  - [Android HTML Support](#android-html-support)
-  - [Android TTS (Text-to-Speech) Support](#android-tts-text-to-speech-support)
-  - [iOS HTML & TTS Support](#ios-html--tts-support)
-- [Basic Push Notification](#basic-push-notification)
-- [Advanced Notification with Options (Android/iOS)](#advanced-notification-with-options-androidios)
-- [Actionable Notification (Android Only)](#actionable-notification-android-only)
-- [iOS-Specific Options](#ios-specific-options)
-- [Best Practices](#best-practices)
-- [Home Assistant Actionable Notification Reference (YAML Examples & Literature)](#home-assistant-actionable-notification-reference-yaml-examples--literature)
+- [Home Assistant Notify Mobile App Payload Templates](#home-assistant-notify-mobile-app-payload-templates)
+  - [Index](#index)
+  - [Platform-Specific Features: Android HTML \& TTS](#platform-specific-features-android-html--tts)
+    - [Android HTML Support](#android-html-support)
+    - [Android TTS (Text-to-Speech) Support](#android-tts-text-to-speech-support)
+  - [iOS HTML \& TTS Support](#ios-html--tts-support)
+  - [Basic Push Notification](#basic-push-notification)
+  - [Advanced Notification with Options (Android/iOS)](#advanced-notification-with-options-androidios)
+  - [Actionable Notification (Android Only)](#actionable-notification-android-only)
+  - [iOS-Specific Options](#ios-specific-options)
+  - [Best Practices](#best-practices)
+  - [Home Assistant Actionable Notification Reference (YAML Examples \& Literature)](#home-assistant-actionable-notification-reference-yaml-examples--literature)
   - [Actionable Notifications (Official Home Assistant Literature)](#actionable-notifications-official-home-assistant-literature)
   - [Building Notification Action Scripts](#building-notification-action-scripts)
   - [Further Considerations](#further-considerations)
   - [Official Home Assistant Actionable Notification Literature](#official-home-assistant-actionable-notification-literature)
+    - [Actionable Notifications](#actionable-notifications)
+      - [iOS](#ios)
+      - [Version Compatibility](#version-compatibility)
+      - [Apple Watch](#apple-watch)
+    - [Building actionable notifications](#building-actionable-notifications)
+      - [Android specific options](#android-specific-options)
+      - [iOS specific options](#ios-specific-options-1)
+        - [Icon Values](#icon-values)
+        - [uri values](#uri-values)
+    - [Building notification action scripts](#building-notification-action-scripts-1)
+    - [Further Considerations (Official Home Assistant Literature)](#further-considerations-official-home-assistant-literature)
+      - [Blocking Behaviour](#blocking-behaviour)
+      - [Catch All Triggers](#catch-all-triggers)
+      - [Migrating from Categories](#migrating-from-categories)
+    - [Compatibility with different devices](#compatibility-with-different-devices)
+      - [iOS 13 and later](#ios-13-and-later)
 
 ---
 
@@ -25,7 +44,10 @@ _A comprehensive guide to constructing, sending, and handling Home Assistant mob
 
 ### Android HTML Support
 
-Android Home Assistant mobile app notifications support HTML formatting in the `message` and `title` fields. This allows you to use tags such as `<b>`, `<i>`, `<span style=...>`, and even zero-width characters for advanced formatting. You can specify colors using either named colors (e.g., `red`, `blue`) or hex codes (e.g., `#e65100`, `#1565c0`). Both methods have been tested and work reliably.
+Android Home Assistant mobile app notifications support HTML formatting in the `message` and `title` fields.
+This allows you to use tags such as `<b>`, `<i>`, `<span style=...>`, and even zero-width characters for advanced formatting.
+You can specify colors using either named colors (e.g., `red`, `blue`) or hex codes (e.g., `#e65100`, `#1565c0`).
+Both methods have been tested and work reliably.
 
 **Example using hex color codes:**
 
@@ -60,13 +82,16 @@ Android Home Assistant mobile app notifications support HTML formatting in the `
 }
 ```
 
-You can reference the `garage_left_open_notify.js` script for a real-world Node-RED example using hex color codes for advanced notification formatting.
+You can reference the `garage_left_open_notify.js` script
+for a real-world Node-RED example using hex color codes for advanced notification formatting.
 
 > **Note:** iOS does not support HTML in notification payloads. Use plain text for iOS devices (see below for stripping HTML).
 
 ### Android TTS (Text-to-Speech) Support
 
-Android devices can receive TTS notifications using the `media_stream` and `tts_text` fields. This allows you to send spoken alerts directly to a user's device, typically using the alarm or notification stream for maximum volume and urgency.
+Android devices can receive TTS notifications using the `media_stream` and `tts_text` fields.
+This allows you to send spoken alerts directly to a user's device,
+typically using the alarm or notification stream for maximum volume and urgency.
 
 **Example:**
 
@@ -91,7 +116,8 @@ Android devices can receive TTS notifications using the `media_stream` and `tts_
 
 **Node-RED Example:**
 
-See the `pending_tts_mobile.js` script for a Node-RED function that sends TTS to all mapped Android devices for a user when they are home.
+See the `pending_tts_mobile.js` script
+for a Node-RED function that sends TTS to all mapped Android devices for a user when they are home.
 
 ---
 
@@ -99,7 +125,9 @@ See the `pending_tts_mobile.js` script for a Node-RED function that sends TTS to
 
 iOS does **not** support HTML in notification payloads. All HTML tags should be stripped before sending to iOS devices.
 
-> **Note:** TTS to mobile devices is only supported for Android. The Home Assistant mobile app for iOS does not support TTS notifications. For TTS on Apple devices, use Sonos, Google Cast, or other integrations.
+> **Note:** TTS to mobile devices is only supported for Android.
+> The Home Assistant mobile app for iOS does not support TTS notifications.
+> For TTS on Apple devices, use Sonos, Google Cast, or other integrations.
 
 ---
 
@@ -162,7 +190,8 @@ iOS does **not** support HTML in notification payloads. All HTML tags should be 
 **Notes:**
 
 - The nested `data` object inside `data` is required for advanced options (Android/iOS specific features).
-- `priority`, `sticky`, `channel`, `ttl`, `color`, `timeout`, `tag`, `persistent`, `importance`, and `notification_icon` are all optional but recommended for alarm/critical notifications.
+- `priority`, `sticky`, `channel`, `ttl`, `color`, `timeout`, `tag`, `persistent`, `importance`, and `notification_icon`
+  are all optional but recommended for alarm/critical notifications.
 
 ---
 
@@ -246,11 +275,13 @@ iOS does **not** support HTML in notification payloads. All HTML tags should be 
 
 ## Home Assistant Actionable Notification Reference (YAML Examples & Literature)
 
-The following section provides official Home Assistant documentation and YAML examples for actionable notifications. These are useful for understanding how notification actions work natively in Home Assistant, and how they relate to Node-RED notification flows.
+The following section provides official Home Assistant documentation and YAML examples for actionable notifications.
+These are useful for understanding how notification actions work natively in Home Assistant automations.
 
 ## Actionable Notifications (Official Home Assistant Literature)
 
-Actionable notifications allow you to add buttons to notifications, which send events to Home Assistant when tapped. These events can be used in automations to perform actions such as sounding alarms, opening doors, or running scripts.
+Actionable notifications allow you to add buttons to notifications, which send events to Home Assistant when tapped.
+These events can be used in automations to perform actions such as sounding alarms, opening doors, or running scripts.
 
 **Example YAML:**
 
@@ -415,27 +446,36 @@ For more, see the [Home Assistant actionable notifications documentation](https:
 
 ## Official Home Assistant Actionable Notification Literature
 
-> The following section is sourced from the official Home Assistant documentation. It provides YAML-based examples and detailed explanations for actionable notifications, which may be useful for advanced users or those integrating Node-RED with Home Assistant automations directly.
+> The following section is sourced from the official Home Assistant documentation.
+> It provides YAML-based examples and detailed explanations for actionable notifications,
+> which may be useful for advanced users or those integrating Node-RED with Home Assistant automations directly.
 
 ### Actionable Notifications
 
-Actionable notifications are a unique type of notification as they allow the user to add buttons to the notification which can then send an event to Home Assistant once clicked. This event can then be used in an automation allowing you to perform a wide variety of actions. These notifications can be sent to either iOS or Android.
+Actionable notifications are a unique type of notification
+as they allow the user to add buttons to the notification which can then send an event to Home Assistant once clicked.
+This event can then be used in an automation to perform a wide variety of actions.
+These notifications can be sent to either iOS or Android.
 
 Some useful examples of actionable notifications:
 
-- A notification is sent whenever motion is detected in your home while you're away or asleep. A "Sound Alarm" action button is displayed alongside the notification, that when tapped, will sound your burglar alarm.
-- Someone rings your front doorbell. You receive a notification with a live camera stream of the visitor outside along with action buttons to lock or unlock your front door.
+- A notification is sent whenever motion is detected in your home while you're away or asleep.
+  A "Sound Alarm" action button is displayed alongside the notification, that when tapped, will sound your burglar alarm.
+- Someone rings your front doorbell. You receive a notification with a live camera stream of the visitor outside
+  along with action buttons to lock or unlock your front door.
 - Receive a notification whenever your garage door opens with action buttons to open or close the garage.
 
 Actionable notifications allow the user to send a command back to Home Assistant.
 
 #### iOS
 
-If you have multiple servers connected to an iOS or mac app, the notification actions will be fired on the server that sent the notification.
+If you have multiple servers connected to an iOS or mac app,
+the notification actions will be fired on the server that sent the notification.
 
 #### Version Compatibility
 
-Category-based notifications on iOS and macOS are deprecated. See the migration guide for more info on converting existing notifications.
+Category-based notifications on iOS and macOS are deprecated.
+See the migration guide for more info on converting existing notifications.
 
 #### Apple Watch
 
@@ -493,9 +533,12 @@ All of the following keys are optional.
 
 This requires iOS app version 2021.10 or later on iOS 15 or later, or a future version of the macOS app on macOS 12 or later.
 
-Icons for notification actions are only allowed from the SF Symbols library, which is different than other icons in Home Assistant which come from Material Design Icons library. This is due to limitations placed on these actions from Apple.
+Icons for notification actions are only allowed from the SF Symbols library,
+which is different than other icons in Home Assistant which come from Material Design Icons library.
+This is due to limitations placed on these actions from Apple.
 
-You must prefix the icon name in the catalogue with sfsymbols: (similar to prefixing with mdi: elsewhere), since we hope to expand this to support MDI in the future. For example:
+You must prefix the icon name in the catalogue with sfsymbols: (similar to prefixing with mdi: elsewhere),
+since we hope to expand this to support MDI in the future. For example:
 
 ```yaml
 action:
@@ -514,7 +557,11 @@ action:
 
 ##### uri values
 
-To navigate to a frontend page, use the format `/lovelace/test` where `test` is replaced by your defined path in the defined view. If you plan to use a dashboard the format would be `/lovelace-dashboard/view` where `/lovelace-dashboard/` is replaced by your defined dashboard URL and `view` is replaced by the defined path within that dashboard. For example:
+To navigate to a frontend page, use the format `/lovelace/test`
+where `test` is replaced by your defined path in the defined view.
+If you plan to use a dashboard the format would be `/lovelace-dashboard/view`
+where `/lovelace-dashboard/` is replaced by your defined dashboard URL
+and `view` is replaced by the defined path within that dashboard. For example:
 
 ```yaml
 - action: "URI"
@@ -523,7 +570,9 @@ To navigate to a frontend page, use the format `/lovelace/test` where `test` is 
 ```
 
 Android specific:
-If you want to open an application you need to set the action to URI. The format will be `app://<package>` where `<package>` is replaced by the package you wish to open (ex: `app://com.twitter.android`). If the device does not have the application installed then the Home Assistant application will open to the default page.
+If you want to open an application you need to set the action to URI.
+The format will be `app://<package>` where `<package>` is replaced by the package you wish to open (ex: `app://com.twitter.android`).
+If the device does not have the application installed then the Home Assistant application will open to the default page.
 
 ```yaml
 - action: "URI"
@@ -531,7 +580,8 @@ If you want to open an application you need to set the action to URI. The format
   uri: "app://com.twitter.android"
 ```
 
-With action set to URI you can also trigger the More Info panel for any entity. The format will be `entityId:<entity_ID>` where `<entity_id>` is replaced with the entity ID you wish to view. Ex: `entityId:sun.sun`
+With action set to URI you can also trigger the More Info panel for any entity.
+The format will be `entityId:<entity_ID>` where `<entity_id>` is replaced with the entity ID you wish to view. Ex: `entityId:sun.sun`
 
 ```yaml
 - action: "URI"
@@ -556,7 +606,8 @@ You can also use an intent scheme URI to start an action in an installed applica
   uri: "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end"
 ```
 
-You can send a specific deep link to an app by using `deep-link://<deep_link>` where `<deep_link>` is the actual deep link you wish to send.
+You can send a specific deep link to an app
+by using `deep-link://<deep_link>` where `<deep_link>` is the actual deep link you wish to send.
 
 For example, to make a telephone call:
 
@@ -590,7 +641,8 @@ There are some important things to keep in mind when building actionable notific
 - Your script or automation could be run multiple times
 - The actions for your notification are shared across all notifications
 
-To avoid issues, you can create unique actions for each time your script is run. By combining context and variables, this can be fairly straightforward:
+To avoid issues, you can create unique actions for each time your script is run.
+By combining context and variables, this can be fairly straightforward:
 
 ```yaml
 # inside a automation actions or script sequence
@@ -671,11 +723,21 @@ When the notification action is performed, the `mobile_app_notification_action` 
 
 #### Blocking Behaviour
 
-The above example will wait, until the notification action is performed. This might lead to unexpected behaviour, depending on the automation mode of the script. For "single" mode, this will lead to a situation, where the script is not executed again if the previous notification action has not yet been performed. For "queue" and "parallel" this will happen if a certain number of notifications have not yet been performed. For "restart" mode it means, that as soon as the script is triggered again notification actions of the older instances of the script will not fire the corresponding action. Depending on the use case, there are several options:
+The above example will wait, until the notification action is performed.
+This might lead to unexpected behaviour, depending on the automation mode of the script.
+For "single" mode, this will lead to a situation,
+where the script is not executed again if the previous notification action has not yet been performed.
+For "queue" and "parallel" this will happen if a certain number of notifications have not yet been performed.
+For "restart" mode it means,
+that as soon as the script is triggered again
+notification actions of the older instances of the script will not fire the corresponding action.
+Depending on the use case, there are several options:
 
-- You can use a time out to allow new executions of the script. However, this will lead to dangling notifications on your mobile phone.
+- You can use a time out to allow new executions of the script.
+  However, this will lead to dangling notifications on your mobile phone.
 - It is possible to clear notifications which can be combined with timeouts and parallel execution mode to achieve good results.
-- In Android you can listen to the notification cleared event that is fired when the notification is closed, and handle it accordingly. This can be achieved by adding the following lines:
+- In Android you can listen to the notification cleared event that is fired when the notification is closed,
+  and handle it accordingly. This can be achieved by adding the following lines:
 
 ```yaml
   - platform: event
@@ -695,11 +757,13 @@ and
               message: The notification was closed
 ```
 
-Keep in mind that the event will not be fired when the Home Assistant app crashes or is closed, so a timeout should still be considered.
+Keep in mind that the event will not be fired when the Home Assistant app crashes or is closed,
+so a timeout should still be considered.
 
 #### Catch All Triggers
 
-You can also create automations that trigger for any notification action. For example, if you wanted to include a SILENCE action on a variety of notifications, but only handle it in one place:
+You can also create automations that trigger for any notification action.
+For example, if you wanted to include a SILENCE action on a variety of notifications, but only handle it in one place:
 
 ```yaml
 automation:
@@ -774,12 +838,17 @@ automation:
       ...
 ```
 
-The above is the minimum necessary to migrate. You can also rewrite your automations to use wait_for_trigger like previous examples, though this is more work and not strictly necessary.
+The above is the minimum necessary to migrate.
+You can also rewrite your automations to use wait_for_trigger like previous examples,
+though this is more work and not strictly necessary.
 
 ### Compatibility with different devices
 
 #### iOS 13 and later
 
-All devices support notification expanding by performing a right to left swipe and pressing 'View' in the lock screen or pressing and holding, but on 3D Touch-enabled devices you may still need to apply some force to do it. If you're not in the lock screen, you can also pull the notification down to expand it.
+All devices support notification expanding by performing a right to left swipe and pressing 'View' in the lock screen
+or pressing and holding,
+but on 3D Touch-enabled devices you may still need to apply some force to do it.
+If you're not in the lock screen, you can also pull the notification down to expand it.
 
 ---

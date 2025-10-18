@@ -1,5 +1,60 @@
 # Jellyseerr TextBee Notify - Changelog v1.7.x
 
+## v1.7.6 (2025-10-18)
+
+### Bug Fixes (Regressions from v1.7.5)
+
+Fixed four issues where v1.7.5 changelog claimed features but code didn't deliver:
+
+1. **TextBee response logging still at info level** (not debug as claimed)
+   - Problem: `TextBee full response` and `TextBee top-level keys` still logged at info
+   - Solution: Moved both to debug level, kept only HTTP status at info
+   - Impact: Reduces log noise in production while keeping troubleshooting data available at debug
+
+2. **Phone numbers exposed in payload logs** (PII leak)
+   - Problem: `TextBee Payload: {...}` logged raw phone numbers at debug level
+   - Solution: Created masked copy for logging: `recipients: ["+1402***6154"]`
+   - Impact: Prevents PII exposure in logs even at debug level
+
+3. **ISSUE_COMMENT routing dead code**
+   - Problem: Comment-specific routing came AFTER broader `ISSUE_` check, so never executed
+   - Solution: Reordered conditions to check `ISSUE_COMMENT` first, then `MEDIA_`, then `ISSUE_`
+   - Impact: Comment routing logic now actually runs (though functionally worked by accident)
+
+4. **Config timezone not used**
+   - Problem: `getStatusTimestamp()` called without `config.time_zone` parameter
+   - Solution: Pass `config.time_zone || 'America/Chicago'` to function
+   - Impact: Node status timestamps now respect configured timezone
+
+### Technical Changes
+
+```javascript
+// Fix 1: Reduce logging noise
+log(`TextBee full response: ${JSON.stringify(response.data)}`, "debug");  // was "info"
+log(`TextBee top-level keys: ${...}`, "debug");  // was "info"
+
+// Fix 2: Mask PII in logs
+const maskedPayloadForLog = {
+    ...payload,
+    recipients: payload.recipients?.map(maskPhone) ?? [maskPhone(phoneNumber)]
+};
+log(`TextBee Payload: ${JSON.stringify(maskedPayloadForLog)}`, "debug");
+
+// Fix 3: Reorder routing (most specific first)
+if (eventType === "ISSUE_COMMENT" && payload.issue) {
+    // Comment-specific logic
+} else if (payload.request && ...) {
+    // Request logic
+} else if (payload.issue && ...) {
+    // General issue logic
+}
+
+// Fix 4: Use configured timezone
+const timestamp = getStatusTimestamp(config.time_zone || 'America/Chicago');
+```
+
+---
+
 ## v1.7.4 (2025-10-18)
 
 ### Bug Fix

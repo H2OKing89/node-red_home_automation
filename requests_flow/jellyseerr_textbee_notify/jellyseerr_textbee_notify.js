@@ -1,6 +1,6 @@
 /**
  * Script Name: Jellyseerr TextBee SMS Notification Handler
- * Version: 1.7.4
+ * Version: 1.7.6
  * Date: 2025-10-18
  * 
  * Description:
@@ -10,13 +10,18 @@
  * Supports multi-variant messages for natural, non-robotic notifications.
  * 
  * Recent Changes:
+ * - 1.7.6: Fixed regressions from 1.7.5 - actually reduced TextBee response logging to debug level
+ *          (full response + keys), masked phone numbers in payload debug logs, fixed ISSUE_COMMENT
+ *          routing dead code by reordering conditions, fixed config.time_zone not being passed to
+ *          getStatusTimestamp() for node status displays
+ * - 1.7.5: Production hardening based on ChatGPT feedback - fixed signatures array check to prevent
+ *          string slicing bug, reduced PII exposure in logs (masked phone in payload logs, reduced
+ *          TextBee response logging to debug level), relaxed maskPhone() E.164 regex for international
+ *          support, case-insensitive user preference check, unknown placeholder warnings, configurable
+ *          timezone, TextBee URL validation, dedupe cleanup jitter, event mapping dictionary refactor
  * - 1.7.4: Bug fix: ISSUE_COMMENT messages now correctly use commenter's username instead of issue
  *          reporter's username for {username} placeholder. Fixes duplicate name display when same
  *          person comments (e.g., "Quentin King, Quentin King just added...").
- * - 1.7.3: Bug fix: Enhanced sanitization of deduplication keys to remove spaces in addition to colons.
- *          Fixes "Invalid property expression" errors when usernames contain spaces.
- * - 1.7.2: Enhanced node status with timezone-aware timestamps using date-fns-tz (America/Chicago).
- *          Shows "✓ Sent: Betty King 10/17/2025 22:47" format with fallback to local time.
  * 
  * Full Changelog: See CHANGELOG/CHANGELOG_v1.7.x.md for detailed version history
  * 
@@ -44,15 +49,6 @@
 
 const LOGGING_ENABLED = true;
 
-// Time zone configuration for timestamps
-const TIME_ZONE = 'America/Chicago';
-
-// Check if date-fns-tz is available
-const formatInTimeZone = dateFnsTz?.formatInTimeZone;
-if (!formatInTimeZone) {
-    node.warn('date-fns-tz not available - timestamps will use local server time');
-}
-
 // Events that should trigger SMS notifications
 const SMS_EVENTS = [
     "MEDIA_AUTO_APPROVED",
@@ -66,6 +62,50 @@ const SMS_EVENTS = [
     "ISSUE_REOPENED",
     "ISSUE_RESOLVED"
 ];
+
+// Event type to template mapping (more maintainable than switch statement)
+const EVENT_TEMPLATE_MAP = {
+    "MEDIA_AUTO_APPROVED": {
+        key: "request_approved",
+        fallback: "Hi {name}, your request for \"{title}\" has been approved and will begin downloading soon! — Jellyseerr"
+    },
+    "MEDIA_APPROVED": {
+        key: "request_approved",
+        fallback: "Hi {name}, your request for \"{title}\" has been approved and will begin downloading soon! — Jellyseerr"
+    },
+    "MEDIA_PENDING": {
+        key: "request_added",
+        fallback: "Hi {name}, your request for \"{title}\" has been added to the queue. — Jellyseerr"
+    },
+    "MEDIA_DECLINED": {
+        key: "request_declined",
+        fallback: "Hi {name}, your request for \"{title}\" has been declined. Please check with your media administrator for more information. — Jellyseerr"
+    },
+    "MEDIA_AVAILABLE": {
+        key: "request_ready",
+        fallback: "Hi {name}, \"{title}\" is now available to watch! — Jellyseerr"
+    },
+    "MEDIA_FAILED": {
+        key: "request_failed",
+        fallback: "Hi {name}, there was an issue processing your request for \"{title}\". — Jellyseerr"
+    },
+    "ISSUE_CREATED": {
+        key: "issue_created",
+        fallback: "Hi {name}, an issue was reported for \"{title}\" by {username}. — Jellyseerr"
+    },
+    "ISSUE_COMMENT": {
+        key: "issue_comment",
+        fallback: "Hi {name}, {username} commented on the issue for \"{title}\". — Jellyseerr"
+    },
+    "ISSUE_RESOLVED": {
+        key: "issue_resolved",
+        fallback: "Hi {name}, the issue for \"{title}\" has been resolved. — Jellyseerr"
+    },
+    "ISSUE_REOPENED": {
+        key: "issue_reopened",
+        fallback: "Hi {name}, the issue for \"{title}\" has been reopened. — Jellyseerr"
+    }
+};
 
 // ============================================================================
 // UTILITY FUNCTIONS
@@ -92,14 +132,16 @@ function log(message, level = "info") {
 
 /**
  * Format current time for node status display
+ * @param {string} timeZone - IANA timezone (e.g., 'America/Chicago')
  * @returns {string} Formatted time string (MM/DD/YYYY HH:mm)
  */
-function getStatusTimestamp() {
+function getStatusTimestamp(timeZone = 'America/Chicago') {
     const now = new Date();
+    const formatInTimeZone = dateFnsTz?.formatInTimeZone;
     
     if (formatInTimeZone) {
         // Use timezone-aware formatting (preferred)
-        return formatInTimeZone(now, TIME_ZONE, 'M/d/yyyy HH:mm');
+        return formatInTimeZone(now, timeZone, 'M/d/yyyy HH:mm');
     } else {
         // Fallback to local server time
         const month = now.getMonth() + 1;
@@ -119,18 +161,19 @@ function getStatusTimestamp() {
 function maskPhone(phone) {
     const p = String(phone || '');
     
-    // E.164 format: +<country code><subscriber number>
-    // Mask all but country code and last 2-4 digits
-    const match = p.match(/^(\+?\d{1,3})(\d{5,12})$/);
+    // E.164 format: +<country code (1-3 digits)><subscriber number (up to 15 total digits)>
+    // Relaxed regex to support full international range
+    const match = p.match(/^(\+?\d{1,3})(\d{4,14})$/);
     if (match) {
         const country = match[1];
         const subscriber = match[2];
-        // Show first 2-3 digits, mask middle, show last 2-4 digits
-        const showStart = 3;
-        const showEnd = subscriber.length > 6 ? 4 : 2;
+        // Safely show first N and last M digits based on length
+        const showStart = Math.min(3, Math.floor(subscriber.length / 3));
+        const showEnd = Math.min(4, Math.floor(subscriber.length / 3));
         const start = subscriber.slice(0, showStart);
         const end = subscriber.slice(-showEnd);
-        const masked = '*'.repeat(subscriber.length - showStart - showEnd);
+        const maskLen = subscriber.length - showStart - showEnd;
+        const masked = maskLen > 0 ? '*'.repeat(maskLen) : '';
         return `${country}${start}${masked}${end}`;
     }
     
@@ -183,12 +226,24 @@ function loadConfig() {
             return null;
         }
         
+        // Validate TextBee URL configuration
+        if (!config.textbee.base_url || !config.textbee.send_path_template) {
+            log("Invalid TEXTBEE_CONFIG: missing base_url or send_path_template", "error");
+            return null;
+        }
+        
         if (!config.users || !Array.isArray(config.users) || config.users.length === 0) {
             log("Invalid TEXTBEE_CONFIG: no users configured", "error");
             return null;
         }
         
         log(`Loaded config with ${config.users.length} users`, "debug");
+        
+        // Log timezone configuration if available
+        if (config.time_zone) {
+            log(`Using timezone from config: ${config.time_zone}`, "debug");
+        }
+        
         return config;
         
     } catch (err) {
@@ -318,6 +373,11 @@ function generateSmsMessage(config, eventType, user, payload) {
     const title = extractMediaTitle(payload);
     const userName = user.name || user.jellyseerr_username || "there";
     
+    // Warn if using Unknown Title (edge case)
+    if (title === "Unknown Title") {
+        log(`Warning: Media title is missing for ${eventType}`, "warn");
+    }
+    
     // Determine username based on event type
     let actorUsername = "Unknown";
     if (eventType === "ISSUE_COMMENT" && payload.comment?.commentedBy_username) {
@@ -339,61 +399,15 @@ function generateSmsMessage(config, eventType, user, payload) {
         "{issue_type}": payload.issue?.issue_type || "Unknown"
     };
     
-    let templatePool = null;
-    let fallbackMessage = null;
-    
-    // Map event types to template pools (arrays) or single strings
-    switch (eventType) {
-        case "MEDIA_AUTO_APPROVED":
-        case "MEDIA_APPROVED":
-            templatePool = templates.request_approved;
-            fallbackMessage = "Hi {name}, your request for \"{title}\" has been approved and will begin downloading soon! — Jellyseerr";
-            break;
-            
-        case "MEDIA_PENDING":
-            templatePool = templates.request_added;
-            fallbackMessage = "Hi {name}, your request for \"{title}\" has been added to the queue. — Jellyseerr";
-            break;
-            
-        case "MEDIA_DECLINED":
-            templatePool = templates.request_declined;
-            fallbackMessage = "Hi {name}, your request for \"{title}\" has been declined. Please check with your media administrator for more information. — Jellyseerr";
-            break;
-            
-        case "MEDIA_AVAILABLE":
-            templatePool = templates.request_ready;
-            fallbackMessage = "Hi {name}, \"{title}\" is now available to watch! — Jellyseerr";
-            break;
-            
-        case "MEDIA_FAILED":
-            templatePool = templates.request_failed;
-            fallbackMessage = "Hi {name}, there was an issue processing your request for \"{title}\". — Jellyseerr";
-            break;
-            
-        case "ISSUE_CREATED":
-            templatePool = templates.issue_created;
-            fallbackMessage = "Hi {name}, an issue was reported for \"{title}\" by {username}. — Jellyseerr";
-            break;
-            
-        case "ISSUE_COMMENT":
-            templatePool = templates.issue_comment;
-            fallbackMessage = "Hi {name}, {username} commented on the issue for \"{title}\". — Jellyseerr";
-            break;
-            
-        case "ISSUE_RESOLVED":
-            templatePool = templates.issue_resolved;
-            fallbackMessage = "Hi {name}, the issue for \"{title}\" has been resolved. — Jellyseerr";
-            break;
-            
-        case "ISSUE_REOPENED":
-            templatePool = templates.issue_reopened;
-            fallbackMessage = "Hi {name}, the issue for \"{title}\" has been reopened. — Jellyseerr";
-            break;
-            
-        default:
-            log(`No template for event type: ${eventType}`, "warn");
-            return null;
+    // Get template configuration from event map
+    const eventConfig = EVENT_TEMPLATE_MAP[eventType];
+    if (!eventConfig) {
+        log(`No template mapping for event type: ${eventType}`, "warn");
+        return null;
     }
+    
+    const templatePool = templates[eventConfig.key];
+    const fallbackMessage = eventConfig.fallback;
     
     // Select template: handle both arrays (multi-variant) and strings (legacy)
     let selectedTemplate = null;
@@ -422,9 +436,15 @@ function generateSmsMessage(config, eventType, user, payload) {
         message = message.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
     }
     
-    // Add signature if configured
+    // Warn if unknown placeholders remain (future-proofing)
+    const unknownPlaceholders = message.match(/{[^}]+}/g);
+    if (unknownPlaceholders) {
+        log(`Warning: Unknown placeholders in template: ${unknownPlaceholders.join(', ')}`, "warn");
+    }
+    
+    // Add signature if configured (with array check to prevent string slicing)
     const signatures = config.signatures;
-    if (signatures && signatures.length > 0) {
+    if (Array.isArray(signatures) && signatures.length > 0) {
         // Random signature selection
         const randomSigIndex = Math.floor(Math.random() * signatures.length);
         const signature = signatures[randomSigIndex];
@@ -462,8 +482,14 @@ async function sendSms(config, phoneNumber, message) {
     
     log(`Sending SMS to ${maskPhone(phoneNumber)} via TextBee`, "info");
     log(`TextBee URL: ${url}`, "debug");
-    log(`TextBee Payload: ${JSON.stringify(payload)}`, "debug");
-    node.trace(`TextBee full request payload: ${JSON.stringify(payload, null, 2)}`);
+    
+    // Mask phone numbers in payload logs to prevent PII exposure
+    const maskedPayloadForLog = {
+        ...payload,
+        recipients: payload.recipients?.map(maskPhone) ?? [maskPhone(phoneNumber)]
+    };
+    log(`TextBee Payload: ${JSON.stringify(maskedPayloadForLog)}`, "debug");
+    if (node.trace) node.trace(`TextBee full request payload: ${JSON.stringify(payload, null, 2)}`);
     
     const response = await axios.post(url, payload, {
         headers: {
@@ -480,10 +506,10 @@ async function sendSms(config, phoneNumber, message) {
     
     // Log full response for debugging (CRITICAL for troubleshooting)
     log(`TextBee API HTTP Status: ${response.status}`, "info");
-    log(`TextBee full response: ${JSON.stringify(response.data)}`, "info");
+    log(`TextBee full response: ${JSON.stringify(response.data)}`, "debug");
     log(`TextBee response type: ${typeof response.data}`, "debug");
-    log(`TextBee top-level keys: ${Object.keys(response.data || {}).join(', ')}`, "info");
-    node.trace(`TextBee raw response: ${JSON.stringify(response.data, null, 2)}`);
+    log(`TextBee top-level keys: ${Object.keys(response.data || {}).join(', ')}`, "debug");
+    if (node.trace) node.trace(`TextBee raw response: ${JSON.stringify(response.data, null, 2)}`);
     
     // Try multiple response structure patterns
     let responseData = null;
@@ -624,9 +650,11 @@ async function sendSms(config, phoneNumber, message) {
             return null;
         }
         
-        // Periodic cleanup of old deduplication keys (every hour)
+        // Periodic cleanup of old deduplication keys (every hour with ±10% jitter)
         const lastCleanup = context.get("last_cleanup") || 0;
-        const cleanupInterval = 60 * 60 * 1000; // 1 hour
+        const baseCleanupInterval = 60 * 60 * 1000; // 1 hour
+        const jitter = baseCleanupInterval * 0.1; // ±10% (6 minutes)
+        const cleanupInterval = baseCleanupInterval + (Math.random() * 2 - 1) * jitter;
         
         if ((now - lastCleanup) > cleanupInterval) {
             const allKeys = context.keys();
@@ -654,7 +682,14 @@ async function sendSms(config, phoneNumber, message) {
         let targetEmail = null;
         let targetUsername = null;
         
-        if (payload.request && (eventType.startsWith("MEDIA_") || eventType === "REQUEST_")) {
+        if (eventType === "ISSUE_COMMENT" && payload.issue) {
+            // Comment events: notify the original issue reporter (not the commenter)
+            // Must check BEFORE the broader ISSUE_ check or it gets caught early
+            targetEmail = payload.issue.reportedBy_email;
+            targetUsername = payload.issue.reportedBy_username;
+            log(`Target user from issue (comment event): ${targetEmail} / ${targetUsername}`, "debug");
+            
+        } else if (payload.request && (eventType.startsWith("MEDIA_") || eventType === "REQUEST_")) {
             // Request-related events: notify the requester
             targetEmail = payload.request.requestedBy_email;
             targetUsername = payload.request.requestedBy_username;
@@ -665,12 +700,6 @@ async function sendSms(config, phoneNumber, message) {
             targetEmail = payload.issue.reportedBy_email;
             targetUsername = payload.issue.reportedBy_username;
             log(`Target user from issue: ${targetEmail} / ${targetUsername}`, "debug");
-            
-        } else if (payload.comment && eventType === "ISSUE_COMMENT") {
-            // Comment events: notify the original issue reporter (not the commenter)
-            targetEmail = payload.issue?.reportedBy_email;
-            targetUsername = payload.issue?.reportedBy_username;
-            log(`Target user from issue (comment event): ${targetEmail} / ${targetUsername}`, "debug");
         }
         
         if (!targetEmail && !targetUsername) {
@@ -688,10 +717,11 @@ async function sendSms(config, phoneNumber, message) {
             return null;
         }
         
-        // Check user's preferred contact method
-        if (user.preferred_contact && user.preferred_contact !== "sms") {
-            log(`User ${user.name} prefers ${user.preferred_contact}, skipping SMS`, "info");
-            node.status({ fill: "grey", shape: "dot", text: `User prefers ${user.preferred_contact}` });
+        // Check user's preferred contact method (case-insensitive)
+        const preferredContact = (user.preferred_contact || '').toLowerCase();
+        if (preferredContact && preferredContact !== "sms") {
+            log(`User ${user.name} prefers ${preferredContact}, skipping SMS`, "info");
+            node.status({ fill: "grey", shape: "dot", text: `User prefers ${preferredContact}` });
             return null;
         }
         
@@ -738,7 +768,7 @@ async function sendSms(config, phoneNumber, message) {
         
         // Update node status with SMS status
         // Note: TextBee always returns QUEUED (batch queue system), so we show "Sent" for clarity
-        const timestamp = getStatusTimestamp();
+        const timestamp = getStatusTimestamp(config.time_zone || 'America/Chicago');
         let statusText = `✓ Sent: ${user.name} ${timestamp}`;
         let statusColor = "green";
         
